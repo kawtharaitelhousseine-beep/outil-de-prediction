@@ -1,6 +1,6 @@
 """
 =============================================================================
-  OUTIL PAT — Système d'Aide à la Décision — Jorf Lasfar OCP
+  OUTIL PAT — Système d'Aide à la Décision 
   Base CFD : Warman 10/8 M | D2=549mm | H_BEP=37.27m | Q_BEP=905.7 m³/h
   PFE 2025-2026 | EMI | Weir Minerals North Africa
   streamlit run interfac.py
@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import FancyBboxPatch, Circle
 
-st.set_page_config(page_title="PAT OCP — Jorf Lasfar", page_icon="⚡",
+st.set_page_config(page_title="outil de prediction pour PAT", page_icon="⚡",
                    layout="wide", initial_sidebar_state="expanded")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -59,8 +59,8 @@ div[data-testid="metric-container"]{background:#f8faff;
 
 st.markdown("""
 <div class="hero">
-  <h1>⚡ Système d'Aide à la Décision — PAT Jorf Lasfar</h1>
-  <p>Récupération d'énergie hydraulique | Réseau pulpe de phosphate OCP<br>
+  <h1>⚡ Système d'Aide à la Décision </h1>
+  <p>Récupération d'énergie hydraulique 
      CFD ANSYS CFX SST k-ω | Warman 10/8 M D₂=549mm | PFE 2025–2026 EMI</p>
 </div>""", unsafe_allow_html=True)
 
@@ -68,7 +68,7 @@ st.markdown("""
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## 🏭 Réseau Jorf Lasfar")
+    st.markdown("## 🏭 Réseau ")
     Q_reseau   = st.number_input("Débit réseau Q (m³/h)",         value=864.9, step=10.0, min_value=50.0)
     dP_total   = st.number_input("ΔP total réseau (bar)",          value=45.0,  step=0.5,  min_value=1.0)
     dP_disque  = st.number_input("ΔP disque de dissipation (bar)", value=10.0,  step=0.5,  min_value=0.0,
@@ -606,6 +606,7 @@ with T4:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""<div style='text-align:center;color:#bbb;font-size:.78rem;'>
-PFE 2025–2026 — École Mohammadia d'Ingénieurs | Weir Minerals North Africa | OCP Jorf Lasfar<br>
+PFE 2025–2026 — École Mohammadia d'Ingénieurs | Weir Minerals North Africa|
 ANSYS CFX SST k-ω | Warman 10/8 M D₂=549mm | H_BEP=37.27m | Q_BEP=905.7m³/h
 </div>""", unsafe_allow_html=True)
+
