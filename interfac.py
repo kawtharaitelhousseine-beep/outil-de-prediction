@@ -92,22 +92,73 @@ with st.sidebar:
     eta_m    = st.slider("η mécanique",    0.80, 1.00, 0.96, 0.01)
     eta_elec = st.slider("η électrique",   0.80, 1.00, 0.95, 0.01)
 
-    st.markdown("---")
+        st.markdown("---")
     st.markdown("## 🔧 Matériau & Érosion")
+    
+    # Nouveau dictionnaire MATS avec commentaires techniques intégrés
     MATS = {
-        "Linatex® (Weir)":    {"rho_m":960,  "f":1.00, "c":"#2E75B6"},
-        "Vulco® (Weir)":      {"rho_m":1050, "f":0.85, "c":"#2E7D32"},
-        "Élastomère naturel": {"rho_m":920,  "f":1.20, "c":"#E65100"},
-        "Polyuréthane HD":    {"rho_m":1200, "f":0.75, "c":"#6A0DAD"},
+        "PTFE": {
+            "rho_m": 2150, 
+            "f": 0.32, 
+            "c": "#8E24AA",   # Violet profond - excellent pour visualisation
+            "comment": "Polytétrafluoroéthylène (Teflon) : Résistance chimique exceptionnelle et très faible coefficient de frottement. Idéal pour slurries corrosives et fines. Excellente tenue à l'érosion par impact doux. Limité en température (>150-200°C) et moins résistant aux particules très dures/sharp."
+        },
+        "PVC": {
+            "rho_m": 1400, 
+            "f": 1.55, 
+            "c": "#F57C00",   # Orange vif
+            "comment": "Polyvinyl Chloride rigide : Bon marché et facile à mettre en œuvre. Résistance mécanique moyenne et sensibilité élevée à l'abrasion. Convient pour slurries peu agressives, basses pressions et températures modérées (<60°C). À éviter en milieu très abrasif ou avec particules anguleuses."
+        },
+        "Caoutchouc": {
+            "rho_m": 1150, 
+            "f": 0.82, 
+            "c": "#2E7D32",   # Vert forêt (conservé car classique pour élastomères)
+            "comment": "Caoutchouc naturel ou synthétique : Excellent amortissement des chocs et absorption d'énergie des particules. Très bonne résistance à l'érosion par impact (fine à moyenne particules). Sensible aux huiles, solvants et hautes températures (>80-100°C). Comportement élastique réduit l'usure par fatigue."
+        },
+        "Fonte au chrome": {
+            "rho_m": 7800, 
+            "f": 0.48, 
+            "c": "#1B263B",   # Bleu marine foncé / gris métallique
+            "comment": "High Chrome White Iron (typ. 27% Cr) : Excellente résistance à l'abrasion par glissement et particules dures/anguleuses. Très haute dureté (≈60 HRC). Idéal pour slurries très abrasives (phosphate OCP, minerais). Moins performant en choc pur que les élastomères. Bonne tenue en température et pression élevée."
+        }
     }
-    mat_sel   = st.selectbox("Matériau", list(MATS.keys()))
-    ep_sac    = st.slider("Épaisseur sacrificielle (mm)", 5, 30, 10, 1)
-    EP_MIN    = st.slider("Seuil sécurité minimum (mm)",  3, 15, 10, 1)
-    K_local   = st.slider("Facteur sévérité K",           1, 50, 15, 1,
-                           help="K=15 typique pulpe abrasive OCP")
+    
+    mat_sel   = st.selectbox("Matériau de revêtement / pièce d'usure", list(MATS.keys()))
+    
+    # Affichage du commentaire technique du matériau sélectionné
+    mat = MATS[mat_sel]
+    st.caption(f"**Caractéristiques techniques :** {mat['comment']}")
+    
+    # Sliders adaptés aux nouveaux matériaux
+    ep_sac    = st.slider(
+        "Épaisseur sacrificielle (mm)", 
+        min_value=3, 
+        max_value=80, 
+        value=12 if mat_sel in ["PTFE", "PVC", "Caoutchouc"] else 25, 
+        step=1,
+        help="Plus élevée pour Fonte au chrome (pièces métalliques massives) ; plus faible pour polymères/élastomères"
+    )
+    
+    EP_MIN    = st.slider(
+        "Seuil sécurité minimum (mm)",  
+        min_value=1, 
+        max_value=15, 
+        value=4 if mat_sel in ["PTFE", "PVC", "Caoutchouc"] else 8, 
+        step=1,
+        help="Seuil plus bas pour matériaux souples (risque de perforation) ; plus élevé pour métal rigide"
+    )
+    
+    K_local   = st.slider(
+        "Facteur sévérité locale K",           
+        min_value=1, 
+        max_value=80, 
+        value=18 if mat_sel in ["PTFE", "PVC", "Caoutchouc"] else 25, 
+        step=1,
+        help="K plus élevé pour Fonte au chrome dans pulpe très abrasive (OCP typique K=20-40)"
+    )
+    
     tarif     = st.number_input("Tarif élec. (MAD/kWh)", value=1.10, step=0.05)
-    H_AN      = st.number_input("Heures fonct./an",      value=8000, step=100)
-
+    H_AN      = st.number_input("Heures de fonctionnement / an", value=8000, step=100)
 # ══════════════════════════════════════════════════════════════════════════════
 # CALCULS PRINCIPAUX
 # ══════════════════════════════════════════════════════════════════════════════
