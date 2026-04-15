@@ -92,7 +92,7 @@ with st.sidebar:
     eta_m    = st.slider("η mécanique",    0.80, 1.00, 0.96, 0.01)
     eta_elec = st.slider("η électrique",   0.80, 1.00, 0.95, 0.01)
 
-        st.markdown("---")
+    st.markdown("---")
     st.markdown("## 🔧 Matériau & Érosion")
     
     # Nouveau dictionnaire MATS avec commentaires techniques intégrés
