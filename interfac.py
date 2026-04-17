@@ -658,6 +658,6 @@ with T4:
 st.markdown("---")
 st.markdown("""<div style='text-align:center;color:#bbb;font-size:.78rem;'>
 PFE 2025–2026 — École Mohammadia d'Ingénieurs | Weir Minerals North Africa|
-ANSYS CFX SST k-ω | Warman 10/8 M D₂=549mm | H_BEP=37.27m | Q_BEP=905.7m³/h
+ANSYS CFX SST k-ω | Warman 10/8 M  | AITELHOUSSEINE/MAHMANI 
 </div>""", unsafe_allow_html=True)
 
