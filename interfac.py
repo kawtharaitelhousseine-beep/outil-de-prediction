@@ -93,7 +93,7 @@ with st.sidebar:
     eta_elec = st.slider("η électrique",   0.80, 1.00, 0.95, 0.01)
 
  st.markdown("---")
-    st.markdown("## 🔧 Matériau & Érosion")
+ st.markdown("## 🔧 Matériau & Érosion")
     MATS = {
         "PTFE": {
             "rho_m": 2150,
