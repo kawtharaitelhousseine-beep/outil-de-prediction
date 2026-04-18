@@ -1,7 +1,7 @@
 # """
-#   OUTIL PAT — Système d'Aide à la Décision
-  Base CFD : Warman 10/8 M | D2=549mm | H_BEP=37.27m | Q_BEP=905.7 m³/h
-  PFE 2025-2026 | EMI | Weir Minerals North Africa
+#  OUTIL PAT — Système d'Aide à la Décision 
+  Base CFD : Warman 10/8 M | D2=549mm | H_BEP=37.27m | Q_BEP=905.7 m³/h
+  PFE 2025-2026 | EMI | Weir Minerals North Africa
   streamlit run interfac.py
 """
 import streamlit as st
