@@ -92,7 +92,7 @@ with st.sidebar:
     eta_m    = 0.89  # η mécanique fixe — valeur CFD BEP
     eta_elec = st.slider("η électrique",   0.80, 1.00, 0.95, 0.01)
 st.markdown("---")
-    st.markdown("## 🔧 Matériau & Érosion")
+st.markdown("## 🔧 Matériau & Érosion")
     MATS = {
         "Linatex® (Weir)":    {"rho_m":960,  "f":1.00, "c":"#2E75B6"},
         "Vulco® (Weir)":      {"rho_m":1050, "f":0.85, "c":"#2E7D32"},
