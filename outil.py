@@ -117,7 +117,7 @@ with st.sidebar:
 # CALCULS PRINCIPAUX
 # ══════════════════════════════════════════════════════════════════════════════
 g       = 9.81
-eta_g   = eta_h * eta_v * eta_m * eta_elec
+eta_g   = eta_h * eta_v * eta_elec
 
 dP_utile = max(dP_total - dP_disque, 0.1)
 H_utile  = dP_utile * 1e5 / (rho * g)
