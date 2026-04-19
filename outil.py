@@ -514,6 +514,7 @@ with T4:
                      f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',unsafe_allow_html=True)
 
 st.markdown("---")
-st.markdown("""<div style='text-align:center;color:rgba(120,160,200,0.4);font-size:.72rem;font-family:JetBrains Mono,monospace;'>
-PFE 2025–2026 · École Mohammadia d'Ingénieurs · Weir Minerals North Africa · ANSYS CFX SST k-ω · Warman 10/8 M D₂=549mm
-</div>""", unsafe_allow_html=True)_html=True)
+st.markdown("""<div style='text-align:center;color:#bbb;font-size:.78rem;'>
+PFE 2025–2026 — École Mohammadia d'Ingénieurs | Weir Minerals North Africa|
+ANSYS CFX SST k-ω | Warman 10/8 M D₂=549mm | H_BEP=37.27m | Q_BEP=905.7m³/h
+</div>""", unsafe_allow_html=True)
