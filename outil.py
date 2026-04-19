@@ -91,21 +91,18 @@ with st.sidebar:
     eta_v    = st.slider("η volumétrique", 0.80, 1.00, 0.91, 0.01)
     eta_m    = 0.89  # η mécanique fixe — valeur CFD BEP
     eta_elec = st.slider("η électrique",   0.80, 1.00, 0.95, 0.01)
-st.markdown("---")
-st.markdown("## 🔧 Matériau & Érosion")
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("## 🔧 Matériau & Érosion")
     MATS = {
         "Linatex® (Weir)":    {"rho_m":960,  "f":1.00, "c":"#2E75B6"},
         "Vulco® (Weir)":      {"rho_m":1050, "f":0.85, "c":"#2E7D32"},
         "Caoutchouc":         {"rho_m":1150, "f":0.82, "c":"#E65100"},
         "Fonte au chrome":    {"rho_m":7800, "f":0.48, "c":"#6A0DAD"},
     }
-    mat_sel   = st.selectbox("Matériau", list(MATS.keys()))
-    ep_sac    = st.slider("Épaisseur sacrificielle (mm)", 5, 30, 20, 1)
-    EP_MIN    = st.slider("Seuil sécurité minimum (mm)",  3, 15,  5, 1)
-    K_local   = st.slider("Facteur sévérité K",           1, 50, 15, 1,
-                           help="K=15 typique pulpe abrasive OCP")
-    tarif     = st.number_input("Tarif élec. (MAD/kWh)", value=1.10, step=0.05)
-    H_AN      = st.number_input("Heures fonct./an",      value=8000, step=100)
+    mat_sel = st.selectbox("Matériau", list(MATS.keys()))
+    ep_sac  = st.slider("Épaisseur sacrificielle (mm)", 5, 30, 20, 1)
+    EP_MIN  = st.slider("Seuil sécurité minimum (mm)",  3, 15,  5, 1)
 # ══════════════════════════════════════════════════════════════════════════════
 # CALCULS PRINCIPAUX
 # ══════════════════════════════════════════════════════════════════════════════
