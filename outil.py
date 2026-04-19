@@ -95,9 +95,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("## 🔧 Matériau & Érosion")
     MATS = {
-        "Linatex® (Weir)":    {"rho_m":960,  "f":1.00, "c":"#2E75B6"},
-        "Vulco® (Weir)":      {"rho_m":1050, "f":0.85, "c":"#2E7D32"},
-        "Caoutchouc":         {"rho_m":1150, "f":0.82, "c":"#E65100"},
+        "Linatex® ":    {"rho_m":960,  "f":1.00, "c":"#2E75B6"},
+        "Vulco® ":      {"rho_m":1050, "f":0.85, "c":"#2E7D32"},
+        "Ultrachrome® ": {"rho_m":7650, "f":0.45, "c":"#E65100"},
         "Fonte au chrome":    {"rho_m":7800, "f":0.48, "c":"#6A0DAD"},
     }
     mat_sel   = st.selectbox("Matériau", list(MATS.keys()))
