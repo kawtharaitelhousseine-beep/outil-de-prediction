@@ -603,11 +603,11 @@ with T2:
     configs = []
     for n in range(1, 7):
         He   = dP_utile * 1e5 / (rho * g) / n
-        Sr   = (He / H_bep)**0.5 if He > 0 else 0
+        Sr   = (He / H_bep_ref)**0.5 if He > 0 else 0
         D2n  = D2_base * Sr
         Nn   = N_base / Sr if Sr > 0 else 0
         Pn   = Prec_base * Sr**5 * n
-        Ns_n = Nn * (Q_bep * Sr**3 / 3600)**0.5 / He**0.75 if He > 0 else 0
+        Ns_n = Nn * (Q_bep_ref * Sr**3 / 3600)**0.5 / He**0.75 if He > 0 else 0
         Em   = E0 * mat["f"] * K_local * (Sr**2.5)
         Evm  = Em / mat["rho_m"]
         dvn  = (ep_m / Evm) / (3600*24*365) if Evm > 0 else 999
