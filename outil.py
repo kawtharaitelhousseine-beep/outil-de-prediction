@@ -469,7 +469,7 @@ with T1:
         axes[0].set_title("Puissance vs S", fontsize=10, fontweight='bold')
         axes[0].legend(fontsize=8.5, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
 
-        axes[1].plot(S_r, H_bep * S_r**2, '-', color='#4FC3F7', lw=2.5, label='H/PAT requise')
+        axes[1].plot(S_r, H_bep_ref * S_r**2, '-', color='#4FC3F7', lw=2.5, label='H/PAT requise')
         axes[1].axhline(H_utile, color='#ff9100', ls='--', lw=1.8, label=f'H utile={H_utile:.1f}m')
         axes[1].axhline(H_total, color='#ff5252', ls=':',  lw=1.5, label=f'H totale={H_total:.1f}m')
         axes[1].axvline(S_real,  color='#ff5252', ls='--', lw=2,   label=f'S={S_real:.3f}')
