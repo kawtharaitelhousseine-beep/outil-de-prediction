@@ -444,8 +444,8 @@ with T1:
         df_sim = pd.DataFrame({
             "Paramètre":   ["D₂ (mm)", "N (tr/min)", "Q/PAT (m³/h)", "H/PAT (m)",
                             "P/PAT (kW)", "P totale (kW)", "Ns"],
-            "Base CFD":    [f"{D2_base:.0f}", f"{N_base:.0f}", f"{Q_bep:.1f}",
-                            f"{H_bep:.2f}", f"{Prec_base:.2f}", "—", "—"],
+            "Base CFD":    [f"{D2_base:.0f}", f"{N_base:.0f}", f"{Q_bep_ref:.1f}",
+                            f"{H_bep_ref:.2f}", f"{Prec_base:.2f}", "—", "—"],
             f"S={S_real:.3f}": [f"{D2_real:.0f}", f"{N_real:.1f}", f"{Q_real:.1f}",
                                 f"{H_par_pat:.2f}", f"{P_unit:.1f}", f"{P_total:.1f}",
                                 f"{Ns:.1f}  {ns_status}"],
@@ -460,7 +460,7 @@ with T1:
         S_r = np.linspace(0.5, 2.5, 200)
 
         axes[0].plot(S_r, Prec_base * S_r**5, '-', color='#00e676', lw=2.5, label='P par PAT')
-        axes[0].plot(S_r, Prec_base * S_r**5 * np.ceil(H_utile / (H_bep * S_r**2)),
+        axes[0].plot(S_r, Prec_base * S_r**5 * np.ceil(H_utile / (H_bep_ref * S_r**2)),
                      '--', color='#4FC3F7', lw=2, label='P totale (N×PAT)')
         axes[0].axvline(S_real, color='#ff5252', ls='--', lw=2, label=f'S={S_real:.3f}')
         axes[0].scatter([S_real], [P_unit], color='#ff5252', s=100, zorder=5, edgecolors='white', lw=1.5)
@@ -473,7 +473,7 @@ with T1:
         axes[1].axhline(H_utile, color='#ff9100', ls='--', lw=1.8, label=f'H utile={H_utile:.1f}m')
         axes[1].axhline(H_total, color='#ff5252', ls=':',  lw=1.5, label=f'H totale={H_total:.1f}m')
         axes[1].axvline(S_real,  color='#ff5252', ls='--', lw=2,   label=f'S={S_real:.3f}')
-        S_incompat = S_r[H_bep * S_r**2 > H_utile]
+        S_incompat = S_r[H_bep_ref * S_r**2 > H_utile]
         if len(S_incompat):
             axes[1].axvspan(S_incompat[0], S_r[-1], alpha=0.06, color='red')
         axes[1].set_xlabel("Facteur S", fontsize=10, fontweight='bold')
