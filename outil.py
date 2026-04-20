@@ -1002,8 +1002,8 @@ def generate_pdf_report():
         for b, v in zip(bars, vpn_arr):
             axes2[0].text(b.get_x()+b.get_width()/2, b.get_height()+max(vpn_arr)*0.02,
                           f'{v:.2f}M', ha='center', fontsize=10, fontweight='bold', color='white')
-        axes2[0].set_ylabel(f"VAN Coûts (M MAD)", fontsize=10, fontweight='bold')
-        axes2[0].set_title("VAN des Coûts Totaux", fontsize=11, fontweight='bold')
+        axes2[0].set_ylabel(f"VAN Coûts (M MAD)", fontsize=10, fontweight='bold' )
+        axes2[0].set_title("VAN des Coûts Totaux", fontsize=11, fontweight='bold' )
 
         t_r2 = np.arange(1, duree_proj + 1)
         for nm, p in MATS.items():
