@@ -173,10 +173,17 @@ P_disque = rho * g * (Q_reseau / 3600) * H_total / 1000
 E_perdue = P_disque * H_AN / 1000
 
 # Fuite volumétrique
-Q_fuite_max_Ls  = 0.70
-Q_fuite_max_m3h = Q_fuite_max_Ls * 3.6
-Q_fuite_reel    = Q_real * (1 - eta_v)
-weir_eta_v_ok   = Q_fuite_reel <= Q_fuite_max_m3h
+# --- CALCUL DES FUITES (VERSION DYNAMIQUE OPTION B) ---
+# Au lieu d'un seuil fixe de 0.7 L/s, on autorise 5% du débit total
+seuil_fuite_pct = 0.05  # 5% est standard pour ce type de machine
+Q_fuite_max_m3h = Q_real * seuil_fuite_pct
+
+Q_fuite_reel = Q_real * (1 - eta_v)
+weir_eta_v_ok = Q_fuite_reel <= Q_fuite_max_m3h
+
+# Pour l'affichage dans l'alerte, on garde la conversion en L/s pour le "look" technique
+Q_fuite_reel_Ls = Q_fuite_reel / 3.6
+Q_fuite_max_Ls = Q_fuite_max_m3h / 3.6
 
 # Vitesse spécifique
 Ns = N_real * (Q_real / 3600)**0.5 / (H_par_pat)**0.75 if H_par_pat > 0 else 0
