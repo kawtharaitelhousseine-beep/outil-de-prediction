@@ -174,7 +174,7 @@ dP_utile  = max(dP_total - dP_disque, 0.1)
 H_utile   = dP_utile * 1e5 / (rho * g)
 H_total   = dP_total * 1e5 / (rho * g)
 
-S         = (Q_reseau / Q_bep) ** (1/3)
+S         = (Q_reseau / Q_bep_ref) ** (1/3)
 H_unit    = H_bep * S**2
 
 N_pat     = max(1, int(np.ceil(H_utile / H_unit)))
