@@ -174,22 +174,6 @@ WEIR_INSP_H = 1800
 weir_ok  = duree_h >= WEIR_INSP_H
 alerte   = "DANGER" if ep_res<=EP_MIN else ("WARNING" if ep_res<=EP_MIN*1.8 else "OK")
 
-# ── Vitesse spécifique & vérifications hydrauliques ──────────────────────────
-Ns      = N_real * (Q_real/3600)**0.5 / (H_par_pat)**0.75
-Ns_pump = N_real * (Q_real/3600)**0.5 / (H_par_pat)**0.75   # même formule
-# NPSH requis (Thoma)
-sigma_th = 0.0545 * (Ns/1000)**1.6
-NPSH_r   = sigma_th * H_par_pat
-# NPSH disponible (estimation — à adapter selon installation)
-H_atm    = 10.33   # m (pression atmosphérique)
-H_vap    = 0.24    # m (eau à 20°C)
-H_asp    = 2.0     # m aspiration estimée
-NPSH_d   = H_atm - H_vap - H_asp
-cavit_ok = NPSH_d >= NPSH_r * 1.2
-# Reynolds roue
-mu_eau   = 1e-3    # Pa.s
-Re_roue  = rho * (N_real/60) * (D2_real/1000)**2 / mu_eau
-
 # ══════════════════════════════════════════════════════════════════════════════
 # KPI HEADER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -222,8 +206,7 @@ T1,T2,T3,T4,T5, = st.tabs([
     "📈 Performance & Scaling",
     "🔢 Système Multi-PAT",
     "🔧 Maintenance & Usure",
-    "🌍 Bilan Éco & CO₂",
-    "🔬 Vérifications Hydrauliques"
+    "🌍 Bilan Éco & CO₂"
 ])
 
 C1="#4FC3F7"; C2="#ff5252"; C3="#00e676"; C4="#ff9100"
