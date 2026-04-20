@@ -92,7 +92,7 @@ with st.sidebar:
                                  help="Pression absorbée par l'orifice — le reste est utile pour les PATs")
     rho       = st.number_input("Densité pulpe ρ (kg/m³)",        value=1590.0, step=10.0)
 
-    with st.sidebar:
+with st.sidebar:
     st.markdown("## 🔵 Base CFD Dynamique — Warman 10/8 M")
     st.caption("Modélisation par régression issue de l'exploration ANSYS")
     
