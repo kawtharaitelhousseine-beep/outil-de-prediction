@@ -110,8 +110,8 @@ with st.sidebar:
     E0_dyn    = poly_ero(Q_actuel_kgs)
     
     # Affichage des valeurs calculées en temps réel
-    st.metric("ηh local (Prédit)", f"{eta_h_dyn*100:.2f} %")
-    st.metric("Érosion E0 (Prédite)", f"{E0_dyn:.2e} kg/m²s")
+    st.metric("ηh local ", f"{eta_h_dyn*100:.2f} %")
+    st.metric("Érosion E0 ", f"{E0_dyn:.2e} kg/m²s")
     
     # On réinjecte ces valeurs dans tes variables de calcul
     eta_h = eta_h_dyn
