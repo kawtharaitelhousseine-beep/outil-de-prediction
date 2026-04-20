@@ -99,7 +99,7 @@ with st.sidebar:
     # On garde ces valeurs comme références BEP pour les lois de similitude (S)
     Q_bep_ref = 905.7  # m3/h au BEP
     H_bep_ref = 37.27  # m au BEP
-    rho_ref   = 1590.0 # Densité de ta simulation
+    rho   = 1590.0 # Densité de ta simulation
     
     # --- CALCUL DYNAMIQUE ---
     # On calcule le débit massique actuel du réseau pour interroger le modèle
@@ -175,17 +175,17 @@ H_utile   = dP_utile * 1e5 / (rho * g)
 H_total   = dP_total * 1e5 / (rho * g)
 
 S         = (Q_reseau / Q_bep_ref) ** (1/3)
-H_unit    = H_bep * S**2
+H_unit    = H_bep_ref * S**2
 
 N_pat     = max(1, int(np.ceil(H_utile / H_unit)))
 H_par_pat = H_utile / N_pat
 
-S_real    = (H_par_pat / H_bep) ** 0.5
+S_real    = (H_par_pat / H_bep_ref) ** 0.5
 D2_real   = D2_base * S_real
 N_real    = N_base  / S_real
-Q_real    = Q_bep   * S_real**3
+Q_real    = Q_bep_ref   * S_real**3
 
-Ph_base   = rho * g * (Q_bep / 3600) * H_bep / 1000
+Ph_base   = rho * g * (Q_bep_ref / 3600) * H_bep_ref / 1000
 Prec_base = Ph_base * eta_g
 P_unit    = Prec_base * S_real**5
 P_total   = P_unit * N_pat
@@ -237,7 +237,7 @@ HR    = max(1.0 - 0.58 * Sm * f_d, 0.50)
 ER    = max(1.0 - 0.28 * Sm * f_d, 0.50)
 
 H_pat_slurry  = H_par_pat * HR
-P_slurry      = rho * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
+P_slurry      = rho_ref * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
 P_elec_slurry = P_slurry * eta_g * ER
 
 # NPSH
