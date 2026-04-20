@@ -855,19 +855,6 @@ with T5:
     st.pyplot(fig_f)
     plt.close()
 
-    st.markdown("---")
-    st.markdown('<div class="sh">Export Rapport PDF</div>', unsafe_allow_html=True)
-    if st.button("📄 Générer et télécharger le rapport PDF", type="primary"):
-        try:
-            pdf_bytes = generate_pdf_report()
-            st.download_button(
-                label="⬇️ Télécharger rapport_PAT.pdf",
-                data=pdf_bytes,
-                file_name=f"rapport_PAT_D{D2_real:.0f}mm_{N_pat}PATs.pdf",
-                mime="application/pdf",
-            )
-        except ImportError:
-            st.error("📦 Installe fpdf2 : pip install fpdf2")
 
 # ─── TAB 6 — Sellgren & Cavitation ───────────────────────────────────────────
 with T6:
