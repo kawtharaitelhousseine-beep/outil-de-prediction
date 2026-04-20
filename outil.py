@@ -92,18 +92,33 @@ with st.sidebar:
                                  help="Pression absorbée par l'orifice — le reste est utile pour les PATs")
     rho       = st.number_input("Densité pulpe ρ (kg/m³)",        value=1590.0, step=10.0)
 
-    st.markdown("---")
-    st.markdown("## 🔵 Base CFD — Warman 10/8 M")
-    st.caption("Valeurs issues de la simulation ANSYS CFX")
-    Q_bep   = st.number_input("Q_BEP CFD (m³/h)", value=905.7, step=10.0)
-    H_bep   = st.number_input("H_BEP CFD (m)",    value=37.27, step=0.1)
-    eta_h   = st.number_input("ηh CFD BEP (%)",   value=69.28, step=0.1) / 100
-    E0      = 1.97e-8
-    st.markdown(f"**Érosion P24 CFD :** `{E0:.2e}` kg/m²·s")
-    st.caption("Valeur fixe — sera scalée avec S et K")
+    with st.sidebar:
+    st.markdown("## 🔵 Base CFD Dynamique — Warman 10/8 M")
+    st.caption("Modélisation par régression issue de l'exploration ANSYS")
+    
+    # On garde ces valeurs comme références BEP pour les lois de similitude (S)
+    Q_bep_ref = 905.7  # m3/h au BEP
+    H_bep_ref = 37.27  # m au BEP
+    rho_ref   = 1590.0 # Densité de ta simulation
+    
+    # --- CALCUL DYNAMIQUE ---
+    # On calcule le débit massique actuel du réseau pour interroger le modèle
+    Q_actuel_kgs = (Q_reseau * rho) / 3600 
+    
+    # On récupère les valeurs ajustées par le modèle
+    eta_h_dyn = poly_eta(Q_actuel_kgs)
+    E0_dyn    = poly_ero(Q_actuel_kgs)
+    
+    # Affichage des valeurs calculées en temps réel
+    st.metric("ηh local (Prédit)", f"{eta_h_dyn*100:.2f} %")
+    st.metric("Érosion E0 (Prédite)", f"{E0_dyn:.2e} kg/m²s")
+    
+    # On réinjecte ces valeurs dans tes variables de calcul
+    eta_h = eta_h_dyn
+    E0    = E0_dyn
+    
     D2_base = 549.0
     N_base  = 715.0
-
     st.markdown("---")
     st.markdown("## ⚙️ Rendements")
     eta_v    = st.slider("η volumétrique", 0.80, 1.00, 0.91, 0.01)
