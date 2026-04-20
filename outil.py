@@ -999,15 +999,15 @@ def generate_pdf_report():
         clrs    = [p["c"] for p in MATS.values()]
 
         bars = axes2[0].bar(noms_c, vpn_arr, color=clrs, edgecolor='#060d18', lw=1.5, width=0.55)
-       # Calcul du VPN des coûts totaux sur la durée du projet
-       t_r2 = np.arange(1, duree_proj + 1)  # Plage de la durée du projet
-       for nm, p in MATS.items():
-       tco_m = tco_data[nm]  # Récupère les données de TCO pour le modèle 'nm'
+         # Calcul du VPN des coûts totaux sur la durée du projet
+        t_r2 = np.arange(1, duree_proj + 1)  # Plage de la durée du projet
+        for nm, p in MATS.items():
+        tco_m = tco_data[nm]  # Récupère les données de TCO pour le modèle 'nm'
           vpn_c = np.array([
              sum(tco_m["cout_annuel"] / (1 + taux_act) ** t for t in range(1, yr + 1))  # Calcul du VPN
         for yr in t_r2  # Pour chaque année de la durée du projet
         ]) / 1e6  # Conversion en millions
-       style = '-' if nm == best_mat else '--'  # Style de la ligne
+        style = '-' if nm == best_mat else '--'  # Style de la ligne
         axes2[1].plot(t_r2, vpn_c, style, color=p["c"], lw=2.5, label=nm.split('(')[0].strip())
 
         axes2[1].set_xlabel("Années", fontsize=10, fontweight='bold')
