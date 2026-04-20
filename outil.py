@@ -9,6 +9,16 @@
 """
 import streamlit as st
 import numpy as np
+
+# Données issues de ton tableau ANSYS
+# Débit (kg/s) -> On convertit tes points en un array
+debits_ref_kgs = np.array([500, 450, 400, 382, 254, 191, 88])
+rendements_ref = np.array([61.32, 63.10, 69.27, 68.93, 65.36, 55.63, 45.30]) / 100
+erosions_ref   = np.array([3.37e-8, 4.68e-09, 1.49e-08, 1.97e-08, 2.26e-07, 6.10e-08, 1.76e-07])
+
+# Création des modèles mathématiques (Fit polynomial degré 2 ou 3)
+poly_eta = np.poly1d(np.polyfit(debits_ref_kgs, rendements_ref, 2))
+poly_ero = np.poly1d(np.polyfit(debits_ref_kgs, erosions_ref, 3))
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Circle
