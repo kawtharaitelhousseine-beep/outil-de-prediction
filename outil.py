@@ -237,7 +237,7 @@ HR    = max(1.0 - 0.58 * Sm * f_d, 0.50)
 ER    = max(1.0 - 0.28 * Sm * f_d, 0.50)
 
 H_pat_slurry  = H_par_pat * HR
-P_slurry      = rho_ref * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
+P_slurry      = rho * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
 P_elec_slurry = P_slurry * eta_g * ER
 
 # NPSH
