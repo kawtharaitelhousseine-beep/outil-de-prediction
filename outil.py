@@ -1097,4 +1097,4 @@ with col_pdf2:
 
 st.markdown("""<div style='text-align:center;color:rgba(120,160,200,0.4);font-size:.72rem;font-family:JetBrains Mono,monospace;margin-top:8px;'>
 PFE 2025–2026 · École Mohammadia d'Ingénieurs · Weir Minerals North Africa · ANSYS CFX SST k-ω · Warman 10/8 M D₂=549mm · v2.0
-</div>""", unsafe_allow_html=True)low_html=True)
+</div>""", unsafe_allow_html=True)
