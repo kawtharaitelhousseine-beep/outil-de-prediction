@@ -113,11 +113,18 @@ with st.sidebar:
     tarif     = st.number_input("Tarif élec. (MAD/kWh)", value=1.10, step=0.05)
     H_AN      = st.number_input("Heures fonct./an",      value=8000, step=100)
 
+    st.markdown("---")
+    st.markdown("## 💰 Analyse Financière")
+    C_invest   = st.number_input("Coût investissement (MAD)", value=2_500_000, step=100000)
+    taux_act   = st.slider("Taux d'actualisation (%)", 1, 20, 8, 1) / 100
+    duree_proj = st.slider("Durée projet (ans)", 5, 30, 20, 1)
+    C_OM_pct   = st.slider("Coût O&M annuel (% invest.)", 1, 10, 3, 1) / 100
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CALCULS PRINCIPAUX
 # ══════════════════════════════════════════════════════════════════════════════
 g       = 9.81
-eta_g   = eta_h * eta_v * eta_elec
+eta_g   = eta_h * eta_v *  eta_elec
 
 dP_utile = max(dP_total - dP_disque, 0.1)
 H_utile  = dP_utile * 1e5 / (rho * g)
@@ -167,6 +174,54 @@ WEIR_INSP_H = 1800
 weir_ok  = duree_h >= WEIR_INSP_H
 alerte   = "DANGER" if ep_res<=EP_MIN else ("WARNING" if ep_res<=EP_MIN*1.8 else "OK")
 
+# ── Courbes caractéristiques PAT (modèle parabolique scalé) ──────────────────
+Q_arr   = np.linspace(0.3*Q_real, 1.7*Q_real, 200)
+alpha   = H_par_pat / (Q_real/3600)**2
+H_arr   = alpha * (Q_arr/3600)**2                        # H-Q parabolique
+eta_arr = eta_h * np.exp(-2.5*((Q_arr - Q_real)/Q_real)**2)  # η-Q gaussien
+P_arr   = rho * g * (Q_arr/3600) * H_arr / 1000 * eta_arr    # P-Q
+
+# ── Vitesse spécifique & vérifications hydrauliques ──────────────────────────
+Ns      = N_real * (Q_real/3600)**0.5 / (H_par_pat)**0.75
+Ns_pump = N_real * (Q_real/3600)**0.5 / (H_par_pat)**0.75   # même formule
+# NPSH requis (Thoma)
+sigma_th = 0.0545 * (Ns/1000)**1.6
+NPSH_r   = sigma_th * H_par_pat
+# NPSH disponible (estimation — à adapter selon installation)
+H_atm    = 10.33   # m (pression atmosphérique)
+H_vap    = 0.24    # m (eau à 20°C)
+H_asp    = 2.0     # m aspiration estimée
+NPSH_d   = H_atm - H_vap - H_asp
+cavit_ok = NPSH_d >= NPSH_r * 1.2
+# Reynolds roue
+mu_eau   = 1e-3    # Pa.s
+Re_roue  = rho * (N_real/60) * (D2_real/1000)**2 / mu_eau
+
+# ── Analyse financière ───────────────────────────────────────────────────────
+C_OM_an  = C_invest * C_OM_pct
+flux_net = gain - C_OM_an
+van_vals = []
+cumul    = -C_invest
+payback  = None
+for t in range(1, duree_proj+1):
+    vt = flux_net / (1+taux_act)**t
+    van_vals.append(vt)
+    cumul += flux_net
+    if cumul >= 0 and payback is None:
+        payback = t - 1 + (C_invest - (cumul - flux_net)) / flux_net
+VAN = sum(van_vals) - C_invest
+# TRI par Newton-Raphson
+def npv(r):
+    return sum(flux_net/(1+r)**t for t in range(1,duree_proj+1)) - C_invest
+tri = 0.1
+for _ in range(200):
+    f  = npv(tri)
+    fp = sum(-t*flux_net/(1+tri)**(t+1) for t in range(1,duree_proj+1))
+    if abs(fp) < 1e-10: break
+    tri -= f/fp
+    tri = max(0.001, min(tri, 5.0))
+ROI = (flux_net * duree_proj - C_invest) / C_invest * 100
+
 # ══════════════════════════════════════════════════════════════════════════════
 # KPI HEADER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -195,11 +250,14 @@ else:
 # ══════════════════════════════════════════════════════════════════════════════
 # ONGLETS
 # ══════════════════════════════════════════════════════════════════════════════
-T1,T2,T3,T4 = st.tabs([
+T1,T2,T3,T4,T5,T6,T7 = st.tabs([
     "📈 Performance & Scaling",
     "🔢 Système Multi-PAT",
     "🔧 Maintenance & Usure",
-    "🌍 Bilan Éco & CO₂"
+    "🌍 Bilan Éco & CO₂",
+    "📉 Courbes Caractéristiques",
+    "💰 Analyse Financière",
+    "🔬 Vérifications Hydrauliques"
 ])
 
 C1="#4FC3F7"; C2="#ff5252"; C3="#00e676"; C4="#ff9100"
@@ -513,8 +571,258 @@ with T4:
         col.markdown(f'<div class="{c}"><div class="kl">{l}</div>'
                      f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',unsafe_allow_html=True)
 
+
+# ─── TAB 5 — Courbes Caractéristiques ────────────────────────────────────────
+with T5:
+    st.markdown('<div class="sh">Courbes Caractéristiques PAT — Modèle Scalé CFD</div>',unsafe_allow_html=True)
+
+    c5a,c5b = st.columns([1,2])
+    with c5a:
+        st.markdown('<div class="sh">Point de fonctionnement</div>',unsafe_allow_html=True)
+        df_pt = pd.DataFrame({
+            "Grandeur":["Q (m³/h)","H (m)","η hydraulique (%)","P récupérée (kW)","N (tr/min)","D₂ (mm)"],
+            "BEP scalé":[f"{Q_real:.1f}",f"{H_par_pat:.2f}",f"{eta_h*100:.1f}",f"{P_unit:.1f}",f"{N_real:.0f}",f"{D2_real:.0f}"]
+        })
+        st.dataframe(df_pt, use_container_width=True, hide_index=True)
+        st.markdown(f"""<div class="weir-box">
+            <div style="font-size:.7rem;color:#4FC3F7;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;font-family:JetBrains Mono,monospace;">Zone BEP ± 20%</div>
+            <div style="font-size:.9rem;">Q : {0.8*Q_real:.0f} — {1.2*Q_real:.0f} m³/h</div>
+            <div style="font-size:.9rem;">η > {eta_h*0.85*100:.1f} %</div>
+            <div style="font-size:.9rem;margin-top:6px;color:#00e676;">Fonctionnement optimal ✓</div>
+        </div>""",unsafe_allow_html=True)
+
+    with c5b:
+        fig5,axes5=plt.subplots(3,1,figsize=(9,10),sharex=True)
+        fig5.patch.set_facecolor('#060d18')
+        dk={'facecolor':'#060d18','tick_params':{'colors':'#7aa8d4','labelsize':9}}
+
+        for ax5 in axes5:
+            ax5.set_facecolor('#060d18')
+            ax5.tick_params(colors='#7aa8d4',labelsize=9)
+            ax5.yaxis.label.set_color('#7aa8d4')
+            ax5.title.set_color('#4FC3F7')
+            for sp in ax5.spines.values(): sp.set_edgecolor('#1e4d8c')
+            ax5.spines['top'].set_visible(False); ax5.spines['right'].set_visible(False)
+            ax5.grid(alpha=.12,linestyle='--',color='#1e4d8c')
+
+        # H-Q
+        axes5[0].plot(Q_arr, H_arr, '-', color='#4FC3F7', lw=2.5, label='H-Q (PAT scalée)')
+        axes5[0].axvline(Q_real,color='#ff5252',ls='--',lw=1.8,label=f'BEP Q={Q_real:.0f}m³/h')
+        axes5[0].axhline(H_par_pat,color='#ff9100',ls=':',lw=1.5,label=f'H={H_par_pat:.1f}m')
+        axes5[0].scatter([Q_real],[H_par_pat],color='#ff5252',s=120,zorder=6,edgecolors='white',lw=1.5)
+        axes5[0].fill_between(Q_arr,H_arr,alpha=.06,color='#4FC3F7')
+        axes5[0].axvspan(0.8*Q_real,1.2*Q_real,alpha=.06,color='#00e676',label='Zone BEP±20%')
+        axes5[0].set_ylabel("H (m)",fontsize=10,fontweight='bold')
+        axes5[0].set_title("Courbe H-Q — PAT Warman 10/8 M scalée",fontsize=10,fontweight='bold')
+        axes5[0].legend(fontsize=8,facecolor='#0a1628',edgecolor='#1e4d8c',labelcolor='#c8d8f0')
+
+        # η-Q
+        axes5[1].plot(Q_arr, eta_arr*100, '-', color='#00e676', lw=2.5, label='η hydraulique (%)')
+        axes5[1].axvline(Q_real,color='#ff5252',ls='--',lw=1.8,label=f'BEP η={eta_h*100:.1f}%')
+        axes5[1].axvspan(0.8*Q_real,1.2*Q_real,alpha=.06,color='#00e676')
+        axes5[1].scatter([Q_real],[eta_h*100],color='#ff5252',s=120,zorder=6,edgecolors='white',lw=1.5)
+        axes5[1].set_ylabel("η (%)",fontsize=10,fontweight='bold')
+        axes5[1].set_title("Courbe η-Q",fontsize=10,fontweight='bold')
+        axes5[1].legend(fontsize=8,facecolor='#0a1628',edgecolor='#1e4d8c',labelcolor='#c8d8f0')
+
+        # P-Q
+        axes5[2].plot(Q_arr, P_arr, '-', color='#e040fb', lw=2.5, label='P récupérée (kW)')
+        axes5[2].axvline(Q_real,color='#ff5252',ls='--',lw=1.8,label=f'BEP P={P_unit:.1f}kW')
+        axes5[2].axvspan(0.8*Q_real,1.2*Q_real,alpha=.06,color='#00e676')
+        axes5[2].scatter([Q_real],[P_unit],color='#ff5252',s=120,zorder=6,edgecolors='white',lw=1.5)
+        axes5[2].fill_between(Q_arr,P_arr,alpha=.06,color='#e040fb')
+        axes5[2].set_xlabel("Débit Q (m³/h)",fontsize=10,fontweight='bold')
+        axes5[2].xaxis.label.set_color('#7aa8d4')
+        axes5[2].set_ylabel("P (kW)",fontsize=10,fontweight='bold')
+        axes5[2].set_title("Courbe P-Q",fontsize=10,fontweight='bold')
+        axes5[2].legend(fontsize=8,facecolor='#0a1628',edgecolor='#1e4d8c',labelcolor='#c8d8f0')
+
+        plt.tight_layout(); st.pyplot(fig5); plt.close()
+
+# ─── TAB 6 — Analyse Financière ──────────────────────────────────────────────
+with T6:
+    st.markdown('<div class="sh">Analyse Financière — VAN · TRI · Payback · ROI</div>',unsafe_allow_html=True)
+
+    # KPIs financiers
+    van_color = "kpi kpi-g" if VAN>0 else "kpi kpi-r"
+    tri_color = "kpi kpi-g" if tri>taux_act else "kpi kpi-r"
+    pb_str    = f"{payback:.1f}" if payback else ">projet"
+    c6a,c6b,c6c,c6d,c6e = st.columns(5)
+    for col,(v,u,l,c) in zip([c6a,c6b,c6c,c6d,c6e],[
+        (f"{VAN/1e6:.2f}","M MAD","VAN",van_color),
+        (f"{tri*100:.1f}","%","TRI",tri_color),
+        (pb_str,"ans","Payback","kpi kpi-o"),
+        (f"{ROI:.0f}","%","ROI total","kpi kpi-p"),
+        (f"{flux_net/1e3:.0f}","k MAD/an","Flux net annuel","kpi kpi-g"),
+    ]):
+        col.markdown(f'<div class="{c}"><div class="kl">{l}</div>'
+                     f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',unsafe_allow_html=True)
+    st.markdown("<br>",unsafe_allow_html=True)
+
+    if VAN > 0:
+        st.markdown(f'<div class="aok">✅ Projet rentable — VAN={VAN/1e6:.2f} M MAD | TRI={tri*100:.1f}% > taux {taux_act*100:.0f}% | Payback ≈ {pb_str} ans</div>',unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="ad">⚠️ VAN négative — Revoir les hypothèses (C_invest, tarif, H_AN)</div>',unsafe_allow_html=True)
+
+    c6L,c6R = st.columns(2)
+    with c6L:
+        # Flux cumulés
+        années = np.arange(0, duree_proj+1)
+        cumuls = [-C_invest] + [(-C_invest + flux_net*t) for t in range(1,duree_proj+1)]
+        fig6a,ax6a = plt.subplots(figsize=(7,4))
+        fig6a.patch.set_facecolor('#060d18'); ax6a.set_facecolor('#060d18')
+        ax6a.tick_params(colors='#7aa8d4',labelsize=9)
+        ax6a.xaxis.label.set_color('#7aa8d4'); ax6a.yaxis.label.set_color('#7aa8d4')
+        ax6a.title.set_color('#4FC3F7')
+        for sp in ax6a.spines.values(): sp.set_edgecolor('#1e4d8c')
+        ax6a.spines['top'].set_visible(False); ax6a.spines['right'].set_visible(False)
+        ax6a.grid(alpha=.12,linestyle='--',color='#1e4d8c')
+
+        colors_cum = ['#00e676' if v>=0 else '#ff5252' for v in cumuls]
+        ax6a.bar(années, np.array(cumuls)/1e6, color=colors_cum, alpha=0.85, edgecolor='#060d18', lw=0.8)
+        ax6a.axhline(0,color='#4FC3F7',lw=1.5,ls='--')
+        if payback:
+            ax6a.axvline(payback,color='#ff9100',lw=2,ls=':',label=f'Payback {pb_str}ans')
+            ax6a.legend(fontsize=9,facecolor='#0a1628',edgecolor='#1e4d8c',labelcolor='#c8d8f0')
+        ax6a.set_xlabel("Années",fontsize=10,fontweight='bold')
+        ax6a.set_ylabel("Flux cumulé (M MAD)",fontsize=10,fontweight='bold')
+        ax6a.set_title("Flux de trésorerie cumulés",fontsize=10,fontweight='bold')
+        plt.tight_layout(); st.pyplot(fig6a); plt.close()
+
+    with c6R:
+        # Sensibilité gain vs tarif
+        tarifs  = np.linspace(0.5, 2.5, 100)
+        vans_t  = [sum((E_an*1000*t - C_OM_an)/(1+taux_act)**y for y in range(1,duree_proj+1)) - C_invest for t in tarifs]
+        fig6b,ax6b = plt.subplots(figsize=(7,4))
+        fig6b.patch.set_facecolor('#060d18'); ax6b.set_facecolor('#060d18')
+        ax6b.tick_params(colors='#7aa8d4',labelsize=9)
+        ax6b.xaxis.label.set_color('#7aa8d4'); ax6b.yaxis.label.set_color('#7aa8d4')
+        ax6b.title.set_color('#4FC3F7')
+        for sp in ax6b.spines.values(): sp.set_edgecolor('#1e4d8c')
+        ax6b.spines['top'].set_visible(False); ax6b.spines['right'].set_visible(False)
+        ax6b.grid(alpha=.12,linestyle='--',color='#1e4d8c')
+
+        ax6b.plot(tarifs, np.array(vans_t)/1e6, '-', color='#4FC3F7', lw=2.5)
+        ax6b.fill_between(tarifs, np.array(vans_t)/1e6, 0,
+                          where=np.array(vans_t)>0, color='#00e676', alpha=.08)
+        ax6b.fill_between(tarifs, np.array(vans_t)/1e6, 0,
+                          where=np.array(vans_t)<=0, color='#ff5252', alpha=.08)
+        ax6b.axvline(tarif,color='#ff9100',ls='--',lw=2,label=f'Tarif actuel {tarif:.2f} MAD/kWh')
+        ax6b.axhline(0,color='#ff5252',lw=1.2,ls=':')
+        ax6b.set_xlabel("Tarif électrique (MAD/kWh)",fontsize=10,fontweight='bold')
+        ax6b.set_ylabel("VAN (M MAD)",fontsize=10,fontweight='bold')
+        ax6b.set_title("Sensibilité VAN / Tarif",fontsize=10,fontweight='bold')
+        ax6b.legend(fontsize=9,facecolor='#0a1628',edgecolor='#1e4d8c',labelcolor='#c8d8f0')
+        plt.tight_layout(); st.pyplot(fig6b); plt.close()
+
+    # Tableau récapitulatif
+    st.markdown("---")
+    st.markdown('<div class="sh">Récapitulatif financier</div>',unsafe_allow_html=True)
+    df_fin = pd.DataFrame({
+        "Indicateur":["Investissement","Gain brut annuel","Coût O&M annuel","Flux net annuel","VAN","TRI","Payback","ROI total"],
+        "Valeur":[f"{C_invest/1e6:.2f} M MAD",f"{gain/1e6:.3f} M MAD/an",f"{C_OM_an/1e3:.0f} k MAD/an",
+                  f"{flux_net/1e3:.0f} k MAD/an",f"{VAN/1e6:.2f} M MAD",f"{tri*100:.1f} %",
+                  f"{pb_str} ans",f"{ROI:.0f} %"],
+        "Statut":["—","✅" if gain>0 else "⚠️","—","✅" if flux_net>0 else "⚠️",
+                  "✅" if VAN>0 else "🚨","✅" if tri>taux_act else "🚨",
+                  "✅" if (payback or 999)<duree_proj/2 else "⚠️","✅" if ROI>0 else "🚨"]
+    })
+    st.dataframe(df_fin, use_container_width=True, hide_index=True)
+
+# ─── TAB 7 — Vérifications Hydrauliques ──────────────────────────────────────
+with T7:
+    st.markdown('<div class="sh">Vérifications Hydrauliques — Ns · NPSH · Reynolds · Cavitation</div>',unsafe_allow_html=True)
+
+    c7a,c7b,c7c,c7d = st.columns(4)
+    ns_ok = 10 < Ns < 300
+    for col,(v,u,l,c) in zip([c7a,c7b,c7c,c7d],[
+        (f"{Ns:.1f}","—","Vitesse spécif. Ns","kpi kpi-g" if ns_ok else "kpi kpi-r"),
+        (f"{NPSH_r:.2f}","m","NPSH requis","kpi kpi-o"),
+        (f"{NPSH_d:.2f}","m","NPSH disponible","kpi kpi-g" if cavit_ok else "kpi kpi-r"),
+        (f"{Re_roue:.1e}","—","Reynolds roue","kpi"),
+    ]):
+        col.markdown(f'<div class="{c}"><div class="kl">{l}</div>'
+                     f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',unsafe_allow_html=True)
+    st.markdown("<br>",unsafe_allow_html=True)
+
+    if ns_ok:
+        st.markdown(f'<div class="aok">✅ Ns={Ns:.1f} — Dans la plage PAT recommandée (10–300 tr/min·m³/s·m)</div>',unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="ad">⚠️ Ns={Ns:.1f} — Hors plage optimale PAT</div>',unsafe_allow_html=True)
+    if cavit_ok:
+        st.markdown(f'<div class="aok">✅ Anti-cavitation OK — NPSH_d ({NPSH_d:.2f}m) ≥ 1.2 × NPSH_r ({NPSH_r:.2f}m)</div>',unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="ad">🚨 Risque cavitation — NPSH_d ({NPSH_d:.2f}m) &lt; 1.2 × NPSH_r ({NPSH_r:.2f}m)</div>',unsafe_allow_html=True)
+
+    c7L,c7R = st.columns(2)
+    with c7L:
+        st.markdown('<div class="sh">Diagramme de Cordier — Positionnement PAT</div>',unsafe_allow_html=True)
+        # Diagramme Ns vs rendement type
+        Ns_range = np.linspace(10, 400, 300)
+        eta_cordier = 0.55 + 0.35*np.exp(-((Ns_range-150)/120)**2)
+        fig7a,ax7a = plt.subplots(figsize=(6.5,4.5))
+        fig7a.patch.set_facecolor('#060d18'); ax7a.set_facecolor('#060d18')
+        ax7a.tick_params(colors='#7aa8d4',labelsize=9)
+        ax7a.xaxis.label.set_color('#7aa8d4'); ax7a.yaxis.label.set_color('#7aa8d4')
+        ax7a.title.set_color('#4FC3F7')
+        for sp in ax7a.spines.values(): sp.set_edgecolor('#1e4d8c')
+        ax7a.spines['top'].set_visible(False); ax7a.spines['right'].set_visible(False)
+        ax7a.grid(alpha=.12,linestyle='--',color='#1e4d8c')
+        ax7a.plot(Ns_range, eta_cordier*100, '-', color='#4FC3F7', lw=2, label='Enveloppe η(Ns)')
+        ax7a.fill_between(Ns_range, eta_cordier*100, alpha=.05, color='#4FC3F7')
+        ax7a.axvspan(10, 300, alpha=.04, color='#00e676', label='Zone PAT recommandée')
+        ax7a.scatter([Ns],[eta_h*100],color='#ff5252',s=180,zorder=6,edgecolors='white',lw=2,label=f'Notre PAT Ns={Ns:.0f}')
+        ax7a.set_xlabel("Vitesse spécifique Ns",fontsize=10,fontweight='bold')
+        ax7a.set_ylabel("η hydraulique (%)",fontsize=10,fontweight='bold')
+        ax7a.set_title("Diagramme Cordier — Positionnement PAT",fontsize=10,fontweight='bold')
+        ax7a.legend(fontsize=8.5,facecolor='#0a1628',edgecolor='#1e4d8c',labelcolor='#c8d8f0')
+        plt.tight_layout(); st.pyplot(fig7a); plt.close()
+
+    with c7R:
+        # Tableau vérifications
+        st.markdown('<div class="sh">Tableau de synthèse</div>',unsafe_allow_html=True)
+        df_hyd = pd.DataFrame({
+            "Vérification":[
+                "Vitesse spécifique Ns","Domaine PAT (10<Ns<300)",
+                "NPSH disponible","NPSH requis (Thoma)",
+                "Marge anti-cavitation","Reynolds roue",
+                "Régime turbulent (Re>1e4)",
+                "Débit / BEP (±30%)","Hauteur / BEP (±30%)"
+            ],
+            "Valeur":[
+                f"{Ns:.1f}","✅ OK" if ns_ok else "⚠️ Hors plage",
+                f"{NPSH_d:.2f} m",f"{NPSH_r:.2f} m",
+                f"{'✅ OK' if cavit_ok else '🚨 RISQUE'} ({NPSH_d/NPSH_r:.2f}×)",
+                f"{Re_roue:.2e}","✅ Oui" if Re_roue>1e4 else "⚠️ Laminaire",
+                f"{Q_real/Q_bep*100:.0f}% — {'✅' if 0.7<Q_real/Q_bep<1.3 else '⚠️'}",
+                f"{H_par_pat/H_bep*100:.0f}% — {'✅' if 0.7<H_par_pat/H_bep<1.3 else '⚠️'}"
+            ]
+        })
+        st.dataframe(df_hyd, use_container_width=True, hide_index=True)
+
+        # Radar chart simplifié
+        categories = ['Ns OK','NPSH','Reynolds','Q/BEP','H/BEP']
+        scores = [
+            min(1.0, 1.0 if ns_ok else 0.3),
+            min(1.0, NPSH_d/(NPSH_r*1.2)),
+            min(1.0, np.log10(Re_roue)/6),
+            min(1.0, 1.0 - abs(Q_real/Q_bep - 1.0)),
+            min(1.0, 1.0 - abs(H_par_pat/H_bep - 1.0)),
+        ]
+        angles = np.linspace(0, 2*np.pi, len(categories), endpoint=False).tolist()
+        scores_plot = scores + scores[:1]; angles_plot = angles + angles[:1]
+        fig7b,ax7b = plt.subplots(figsize=(5,4),subplot_kw=dict(polar=True))
+        fig7b.patch.set_facecolor('#060d18'); ax7b.set_facecolor('#060d18')
+        ax7b.set_xticks(angles); ax7b.set_xticklabels(categories,color='#7aa8d4',fontsize=9)
+        ax7b.set_yticks([0.25,0.5,0.75,1.0]); ax7b.set_yticklabels(['','','',''],color='#7aa8d4')
+        ax7b.grid(color='#1e4d8c',alpha=.3)
+        ax7b.spines['polar'].set_color('#1e4d8c')
+        ax7b.plot(angles_plot, scores_plot, 'o-', color='#4FC3F7', lw=2)
+        ax7b.fill(angles_plot, scores_plot, alpha=.15, color='#4FC3F7')
+        ax7b.set_title("Score hydraulique global",color='#4FC3F7',fontsize=10,fontweight='bold',pad=15)
+        plt.tight_layout(); st.pyplot(fig7b); plt.close()
+
 st.markdown("---")
-st.markdown("""<div style='text-align:center;color:#bbb;font-size:.78rem;'>
-PFE 2025–2026 — École Mohammadia d'Ingénieurs | Weir Minerals North Africa|
-ANSYS CFX SST k-ω | Warman 10/8 M D₂=549mm | H_BEP=37.27m | Q_BEP=905.7m³/h
+st.markdown("""<div style='text-align:center;color:rgba(120,160,200,0.4);font-size:.72rem;font-family:JetBrains Mono,monospace;'>
+PFE 2025–2026 · École Mohammadia d'Ingénieurs · Weir Minerals North Africa · ANSYS CFX SST k-ω · Warman 10/8 M D₂=549mm
 </div>""", unsafe_allow_html=True)
