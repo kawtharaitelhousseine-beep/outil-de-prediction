@@ -174,13 +174,6 @@ WEIR_INSP_H = 1800
 weir_ok  = duree_h >= WEIR_INSP_H
 alerte   = "DANGER" if ep_res<=EP_MIN else ("WARNING" if ep_res<=EP_MIN*1.8 else "OK")
 
-# ── Courbes caractéristiques PAT (modèle parabolique scalé) ──────────────────
-Q_arr   = np.linspace(0.3*Q_real, 1.7*Q_real, 200)
-alpha   = H_par_pat / (Q_real/3600)**2
-H_arr   = alpha * (Q_arr/3600)**2                        # H-Q parabolique
-eta_arr = eta_h * np.exp(-2.5*((Q_arr - Q_real)/Q_real)**2)  # η-Q gaussien
-P_arr   = rho * g * (Q_arr/3600) * H_arr / 1000 * eta_arr    # P-Q
-
 # ── Vitesse spécifique & vérifications hydrauliques ──────────────────────────
 Ns      = N_real * (Q_real/3600)**0.5 / (H_par_pat)**0.75
 Ns_pump = N_real * (Q_real/3600)**0.5 / (H_par_pat)**0.75   # même formule
@@ -196,31 +189,6 @@ cavit_ok = NPSH_d >= NPSH_r * 1.2
 # Reynolds roue
 mu_eau   = 1e-3    # Pa.s
 Re_roue  = rho * (N_real/60) * (D2_real/1000)**2 / mu_eau
-
-# ── Analyse financière ───────────────────────────────────────────────────────
-C_OM_an  = C_invest * C_OM_pct
-flux_net = gain - C_OM_an
-van_vals = []
-cumul    = -C_invest
-payback  = None
-for t in range(1, duree_proj+1):
-    vt = flux_net / (1+taux_act)**t
-    van_vals.append(vt)
-    cumul += flux_net
-    if cumul >= 0 and payback is None:
-        payback = t - 1 + (C_invest - (cumul - flux_net)) / flux_net
-VAN = sum(van_vals) - C_invest
-# TRI par Newton-Raphson
-def npv(r):
-    return sum(flux_net/(1+r)**t for t in range(1,duree_proj+1)) - C_invest
-tri = 0.1
-for _ in range(200):
-    f  = npv(tri)
-    fp = sum(-t*flux_net/(1+tri)**(t+1) for t in range(1,duree_proj+1))
-    if abs(fp) < 1e-10: break
-    tri -= f/fp
-    tri = max(0.001, min(tri, 5.0))
-ROI = (flux_net * duree_proj - C_invest) / C_invest * 100
 
 # ══════════════════════════════════════════════════════════════════════════════
 # KPI HEADER
@@ -250,13 +218,11 @@ else:
 # ══════════════════════════════════════════════════════════════════════════════
 # ONGLETS
 # ══════════════════════════════════════════════════════════════════════════════
-T1,T2,T3,T4,T5,T6,T7 = st.tabs([
+T1,T2,T3,T4,T5, = st.tabs([
     "📈 Performance & Scaling",
     "🔢 Système Multi-PAT",
     "🔧 Maintenance & Usure",
     "🌍 Bilan Éco & CO₂",
-    "📉 Courbes Caractéristiques",
-    "💰 Analyse Financière",
     "🔬 Vérifications Hydrauliques"
 ])
 
