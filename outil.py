@@ -9,16 +9,6 @@
 """
 import streamlit as st
 import numpy as np
-
-# Données issues de ton tableau ANSYS
-# Débit (kg/s) -> On convertit tes points en un array
-debits_ref_kgs = np.array([500, 450, 400, 382, 254, 191, 88])
-rendements_ref = np.array([61.32, 63.10, 69.27, 68.93, 65.36, 55.63, 45.30]) / 100
-erosions_ref   = np.array([3.37e-8, 4.68e-09, 1.49e-08, 1.97e-08, 2.26e-07, 6.10e-08, 1.76e-07])
-
-# Création des modèles mathématiques (Fit polynomial degré 2 ou 3)
-poly_eta = np.poly1d(np.polyfit(debits_ref_kgs, rendements_ref, 2))
-poly_ero = np.poly1d(np.polyfit(debits_ref_kgs, erosions_ref, 3))
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Circle
@@ -72,6 +62,7 @@ section[data-testid="stSidebar"] .stSlider [data-baseweb="slider"] div[role="sli
 hr{border-color:rgba(46,117,182,0.20) !important;}
 </style>
 """, unsafe_allow_html=True)
+
 st.markdown("""
 <div class="hero">
   <div class="hero-tag">⚡ PFE 2025–2026 · EMI · Weir Minerals North Africa</div>
@@ -91,33 +82,18 @@ with st.sidebar:
                                  help="Pression absorbée par l'orifice — le reste est utile pour les PATs")
     rho       = st.number_input("Densité pulpe ρ (kg/m³)",        value=1590.0, step=10.0)
 
-with st.sidebar:
-    st.markdown("## 🔵 Base CFD Dynamique — Warman 10/8 M")
-    st.caption("Modélisation par régression issue de l'exploration ANSYS")
-    
-    # On garde ces valeurs comme références BEP pour les lois de similitude (S)
-    Q_bep_ref = 905.7  # m3/h au BEP
-    H_bep_ref = 37.27  # m au BEP
-    rho   = 1590.0 # Densité de ta simulation
-    
-    # --- CALCUL DYNAMIQUE ---
-    # On calcule le débit massique actuel du réseau pour interroger le modèle
-    Q_actuel_kgs = (Q_reseau * rho) / 3600 
-    
-    # On récupère les valeurs ajustées par le modèle
-    eta_h_dyn = poly_eta(Q_actuel_kgs)
-    E0_dyn    = poly_ero(Q_actuel_kgs)
-    
-    # Affichage des valeurs calculées en temps réel
-    st.metric("ηh local ", f"{eta_h_dyn*100:.2f} %")
-    st.metric("Érosion E0 ", f"{E0_dyn:.2e} kg/m²s")
-    
-    # On réinjecte ces valeurs dans tes variables de calcul
-    eta_h = eta_h_dyn
-    E0    = E0_dyn
-    
+    st.markdown("---")
+    st.markdown("## 🔵 Base CFD — Warman 10/8 M")
+    st.caption("Valeurs issues de la simulation ANSYS CFX")
+    Q_bep   = st.number_input("Q_BEP CFD (m³/h)", value=905.7, step=10.0)
+    H_bep   = st.number_input("H_BEP CFD (m)",    value=37.27, step=0.1)
+    eta_h   = st.number_input("ηh CFD BEP (%)",   value=69.28, step=0.1) / 100
+    E0      = 1.97e-8
+    st.markdown(f"**Érosion P24 CFD :** `{E0:.2e}` kg/m²·s")
+    st.caption("Valeur fixe — sera scalée avec S et K")
     D2_base = 549.0
     N_base  = 715.0
+
     st.markdown("---")
     st.markdown("## ⚙️ Rendements")
     eta_v    = st.slider("η volumétrique", 0.80, 1.00, 0.91, 0.01)
@@ -173,18 +149,18 @@ dP_utile  = max(dP_total - dP_disque, 0.1)
 H_utile   = dP_utile * 1e5 / (rho * g)
 H_total   = dP_total * 1e5 / (rho * g)
 
-S         = (Q_reseau / Q_bep_ref) ** (1/3)
-H_unit    = H_bep_ref * S**2
+S         = (Q_reseau / Q_bep) ** (1/3)
+H_unit    = H_bep * S**2
 
 N_pat     = max(1, int(np.ceil(H_utile / H_unit)))
 H_par_pat = H_utile / N_pat
 
-S_real    = (H_par_pat / H_bep_ref) ** 0.5
+S_real    = (H_par_pat / H_bep) ** 0.5
 D2_real   = D2_base * S_real
 N_real    = N_base  / S_real
-Q_real    = Q_bep_ref   * S_real**3
+Q_real    = Q_bep   * S_real**3
 
-Ph_base   = rho * g * (Q_bep_ref / 3600) * H_bep_ref / 1000
+Ph_base   = rho * g * (Q_bep / 3600) * H_bep / 1000
 Prec_base = Ph_base * eta_g
 P_unit    = Prec_base * S_real**5
 P_total   = P_unit * N_pat
@@ -197,17 +173,10 @@ P_disque = rho * g * (Q_reseau / 3600) * H_total / 1000
 E_perdue = P_disque * H_AN / 1000
 
 # Fuite volumétrique
-# --- CALCUL DES FUITES (VERSION DYNAMIQUE OPTION B) ---
-# Au lieu d'un seuil fixe de 0.7 L/s, on autorise 5% du débit total
-seuil_fuite_pct = 0.05  # 5% est standard pour ce type de machine
-Q_fuite_max_m3h = Q_real * seuil_fuite_pct
-
-Q_fuite_reel = Q_real * (1 - eta_v)
-weir_eta_v_ok = Q_fuite_reel <= Q_fuite_max_m3h
-
-# Pour l'affichage dans l'alerte, on garde la conversion en L/s pour le "look" technique
-Q_fuite_reel_Ls = Q_fuite_reel / 3.6
-Q_fuite_max_Ls = Q_fuite_max_m3h / 3.6
+Q_fuite_max_Ls  = 0.70
+Q_fuite_max_m3h = Q_fuite_max_Ls * 3.6
+Q_fuite_reel    = Q_real * (1 - eta_v)
+weir_eta_v_ok   = Q_fuite_reel <= Q_fuite_max_m3h
 
 # Vitesse spécifique
 Ns = N_real * (Q_real / 3600)**0.5 / (H_par_pat)**0.75 if H_par_pat > 0 else 0
@@ -239,26 +208,13 @@ H_pat_slurry  = H_par_pat * HR
 P_slurry      = rho * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
 P_elec_slurry = P_slurry * eta_g * ER
 
-# ══════════════════════════════════════════════════════
-# NPSH — Thoma corrigé (σ depuis Ns)
-# ══════════════════════════════════════════════════════
-H_atm  = 101325 / (rho * g)
-Pv_Pa  = 3_170                      # vapeur eau 25°C
-
-# Thoma σ calculé depuis Ns (Surek, pompe radiale)
-# σ = (Ns/4500)^(4/3), plancher 0.02
-sigma_thoma = max((Ns / 4500) ** (4/3), 0.02)
-
-NPSH_r   = sigma_thoma * H_par_pat  # CORRECT
-NPSH_d   = H_atm - Pv_Pa/(rho*g) - 2.0
+# NPSH
+H_atm    = 101325 / (rho * g)
+Pv_Pa    = 3_170
+NPSH_d   = H_atm - Pv_Pa / (rho * g) - 2.0
+NPSH_r   = 0.3 * H_par_pat
 cavit_ok = NPSH_d >= NPSH_r
-# ══════════════════════════════════════════════════════
-# COHÉRENCE Q-H (similitude)   ← NOUVEAU ICI
-# ══════════════════════════════════════════════════════
-S_from_Q    = (Q_reseau / Q_bep_ref) ** (1/3)
-S_from_H    = S_real
-delta_S_pct = abs(S_from_Q - S_from_H) / S_from_Q * 100
-off_bep_pct = (Q_reseau - Q_real) / Q_real * 100
+
 # ── TCO ───────────────────────────────────────────────────────────────────────
 tco_data = {}
 for nm, p in MATS.items():
@@ -445,6 +401,7 @@ def style_ax(ax):
     ax.spines['right'].set_visible(False)
     ax.grid(alpha=.25, linestyle='--', color='#94a3b8')
 
+
 # ─── TAB 1 ───────────────────────────────────────────────────────────────────
 with T1:
     st.markdown('<div class="sh">Dimensionnement par Loi de Similitude</div>', unsafe_allow_html=True)
@@ -455,8 +412,8 @@ with T1:
         df_sim = pd.DataFrame({
             "Paramètre":   ["D₂ (mm)", "N (tr/min)", "Q/PAT (m³/h)", "H/PAT (m)",
                             "P/PAT (kW)", "P totale (kW)", "Ns"],
-            "Base CFD":    [f"{D2_base:.0f}", f"{N_base:.0f}", f"{Q_bep_ref:.1f}",
-                            f"{H_bep_ref:.2f}", f"{Prec_base:.2f}", "—", "—"],
+            "Base CFD":    [f"{D2_base:.0f}", f"{N_base:.0f}", f"{Q_bep:.1f}",
+                            f"{H_bep:.2f}", f"{Prec_base:.2f}", "—", "—"],
             f"S={S_real:.3f}": [f"{D2_real:.0f}", f"{N_real:.1f}", f"{Q_real:.1f}",
                                 f"{H_par_pat:.2f}", f"{P_unit:.1f}", f"{P_total:.1f}",
                                 f"{Ns:.1f}  {ns_status}"],
@@ -465,32 +422,32 @@ with T1:
 
     with cB:
         fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
-        fig.patch.set_facecolor('#0a1628')
+        fig.patch.set_facecolor('#f8fafc')
         for ax in axes:
             style_ax(ax)
         S_r = np.linspace(0.5, 2.5, 200)
 
         axes[0].plot(S_r, Prec_base * S_r**5, '-', color='#00e676', lw=2.5, label='P par PAT')
-        axes[0].plot(S_r, Prec_base * S_r**5 * np.ceil(H_utile / (H_bep_ref * S_r**2)),
+        axes[0].plot(S_r, Prec_base * S_r**5 * np.ceil(H_utile / (H_bep * S_r**2)),
                      '--', color='#4FC3F7', lw=2, label='P totale (N×PAT)')
         axes[0].axvline(S_real, color='#ff5252', ls='--', lw=2, label=f'S={S_real:.3f}')
         axes[0].scatter([S_real], [P_unit], color='#ff5252', s=100, zorder=5, edgecolors='white', lw=1.5)
         axes[0].set_xlabel("Facteur S", fontsize=10, fontweight='bold')
         axes[0].set_ylabel("Puissance (kW)", fontsize=10, fontweight='bold')
         axes[0].set_title("Puissance vs S", fontsize=10, fontweight='bold')
-        axes[0].legend(fontsize=8.5, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+        axes[0].legend(fontsize=8.5, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
 
-        axes[1].plot(S_r, H_bep_ref * S_r**2, '-', color='#4FC3F7', lw=2.5, label='H/PAT requise')
+        axes[1].plot(S_r, H_bep * S_r**2, '-', color='#4FC3F7', lw=2.5, label='H/PAT requise')
         axes[1].axhline(H_utile, color='#ff9100', ls='--', lw=1.8, label=f'H utile={H_utile:.1f}m')
         axes[1].axhline(H_total, color='#ff5252', ls=':',  lw=1.5, label=f'H totale={H_total:.1f}m')
         axes[1].axvline(S_real,  color='#ff5252', ls='--', lw=2,   label=f'S={S_real:.3f}')
-        S_incompat = S_r[H_bep_ref * S_r**2 > H_utile]
+        S_incompat = S_r[H_bep * S_r**2 > H_utile]
         if len(S_incompat):
             axes[1].axvspan(S_incompat[0], S_r[-1], alpha=0.06, color='red')
         axes[1].set_xlabel("Facteur S", fontsize=10, fontweight='bold')
         axes[1].set_ylabel("H (m)", fontsize=10, fontweight='bold')
         axes[1].set_title("Hauteur vs S — Compatibilité", fontsize=10, fontweight='bold')
-        axes[1].legend(fontsize=8, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+        axes[1].legend(fontsize=8, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
 
         plt.tight_layout()
         st.pyplot(fig)
@@ -517,8 +474,8 @@ with T2:
     ax_r.set_xlim(0, 13)
     ax_r.set_ylim(0, 6)
     ax_r.axis('off')
-    ax_r.set_facecolor('#060d18')
-    fig_r.patch.set_facecolor('#060d18')
+    ax_r.set_facecolor('white')
+    fig_r.patch.set_facecolor('#f8fafc')
     ax_r.text(6.5, 5.55, f'Architecture réseau — {N_pat} PAT(s) en série | Jorf Lasfar OCP',
               ha='center', fontsize=12, fontweight='bold', color='#4FC3F7')
 
@@ -554,7 +511,7 @@ with T2:
     for ni in range(n_show):
         xp = x_start + ni * spacing
         yp = 3.0
-        ax_r.add_patch(Circle((xp, yp), 0.32, fc='#0d2545', ec='#4FC3F7', lw=2, zorder=5))
+        ax_r.add_patch(Circle((xp, yp), 0.32, fc='#dbeafe', ec='#1565c0', lw=2, zorder=5))
         for ang in range(0, 360, 72):
             th = np.radians(ang)
             ax_r.plot([xp + 0.14*np.cos(th), xp + 0.29*np.cos(th + np.radians(22))],
@@ -614,11 +571,11 @@ with T2:
     configs = []
     for n in range(1, 7):
         He   = dP_utile * 1e5 / (rho * g) / n
-        Sr   = (He / H_bep_ref)**0.5 if He > 0 else 0
+        Sr   = (He / H_bep)**0.5 if He > 0 else 0
         D2n  = D2_base * Sr
         Nn   = N_base / Sr if Sr > 0 else 0
         Pn   = Prec_base * Sr**5 * n
-        Ns_n = Nn * (Q_bep_ref * Sr**3 / 3600)**0.5 / He**0.75 if He > 0 else 0
+        Ns_n = Nn * (Q_bep * Sr**3 / 3600)**0.5 / He**0.75 if He > 0 else 0
         Em   = E0 * mat["f"] * K_local * (Sr**2.5)
         Evm  = Em / mat["rho_m"]
         dvn  = (ep_m / Evm) / (3600*24*365) if Evm > 0 else 999
@@ -633,7 +590,7 @@ with T2:
     df_conf = pd.DataFrame(configs)
 
     def hi(row):
-        return ['background-color:#0d2545'] * len(row) if int(row["N PATs"]) == N_pat else [''] * len(row)
+        return ['background-color:#dbeafe'] * len(row) if int(row["N PATs"]) == N_pat else [''] * len(row)
 
     st.dataframe(df_conf.style.apply(hi, axis=1), use_container_width=True, hide_index=True)
 
@@ -704,7 +661,7 @@ with T3:
         t_r   = np.linspace(0, t_max, 400)
 
         fig_t, ax_t = plt.subplots(figsize=(6.5, 4))
-        fig_t.patch.set_facecolor('#0a1628')
+        fig_t.patch.set_facecolor('#f8fafc')
         style_ax(ax_t)
         for nm, p in MATS.items():
             Em  = E0 * p["f"] * K_local * (S_real**2.5)
@@ -719,7 +676,7 @@ with T3:
         ax_t.set_ylabel("Épaisseur résiduelle (mm)", fontsize=10, fontweight='bold')
         ax_t.set_title(f"Usure paroi — S={S_real:.3f} | K={K_local}", fontsize=10, fontweight='bold')
         ax_t.set_ylim(0, ep_sac * 1.12)
-        ax_t.legend(fontsize=8.5, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+        ax_t.legend(fontsize=8.5, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
         plt.tight_layout()
         st.pyplot(fig_t)
         plt.close()
@@ -732,7 +689,7 @@ with T3:
             dv_S.append((ep_m / Evm) / 3600 if Evm > 0 else 1e6)
 
         fig_s, ax_s = plt.subplots(figsize=(6.5, 3.8))
-        fig_s.patch.set_facecolor('#0a1628')
+        fig_s.patch.set_facecolor('#f8fafc')
         style_ax(ax_s)
         ax_s.plot(S_range, np.array(dv_S) / 1000, '-', color=mat["c"], lw=2.5)
         ax_s.axvline(S_real, color='#ff5252', ls='--', lw=2, label=f'S={S_real:.3f}')
@@ -741,7 +698,7 @@ with T3:
         ax_s.set_xlabel("Facteur S", fontsize=10, fontweight='bold')
         ax_s.set_ylabel("Durée de vie (×1000 h)", fontsize=10, fontweight='bold')
         ax_s.set_title(f"Durée vie vs S — {mat_sel.split('(')[0]}", fontsize=10, fontweight='bold')
-        ax_s.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+        ax_s.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
         plt.tight_layout()
         st.pyplot(fig_s)
         plt.close()
@@ -762,7 +719,7 @@ with T4:
             <div style="margin-top:5px;color:#ff9999;font-size:.88rem;">🌍 {E_perdue*0.72:.1f} t CO₂ non valorisées</div>
         </div>""", unsafe_allow_html=True)
     with c_mid:
-        st.markdown(f"""<div style="background:linear-gradient(135deg,#0a1628,#0d2545);border-radius:4px;padding:16px;text-align:center;color:white;margin:10px 0;border:1px solid rgba(79,195,247,0.3);">
+        st.markdown(f"""<div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:4px;padding:16px;text-align:center;color:#1e3a5f;margin:10px 0;border:1px solid rgba(37,99,235,0.3);">
             <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px;color:#4FC3F7;">⚡ INSTALLATION PAT</div>
             <div style="font-size:1rem;margin:6px 0;">{N_pat} PAT(s) × D₂={D2_real:.0f}mm</div>
             <div style="font-size:.9rem;opacity:.7;">S = {S_real:.3f}</div>
@@ -784,7 +741,7 @@ with T4:
 
     st.markdown("---")
     fig_eco, axes_eco = plt.subplots(1, 3, figsize=(13, 4.5))
-    fig_eco.patch.set_facecolor('#0a1628')
+    fig_eco.patch.set_facecolor('#f8fafc')
     for ax_e, vals, labels, title, colors in [
         (axes_eco[0],
          [P_disque, P_total, P_disque - P_total],
@@ -800,17 +757,17 @@ with T4:
          'CO₂ (t/an)', ['#ff9100', '#00e676']),
     ]:
         style_ax(ax_e)
-        ax_e.tick_params(axis='x', colors='#c8d8f0')
-        bars = ax_e.bar(labels, vals, color=colors, width=0.5, edgecolor='#060d18', lw=1.5)
+        ax_e.tick_params(axis='x', colors='#334155')
+        bars = ax_e.bar(labels, vals, color=colors, width=0.5, edgecolor='#f8fafc', lw=1.5)
         for b, v in zip(bars, vals):
             ax_e.text(b.get_x() + b.get_width()/2, b.get_height() + max(vals)*0.02,
-                      f'{v:.0f}', ha='center', fontsize=11, fontweight='bold', color='white')
+                      f'{v:.0f}', ha='center', fontsize=11, fontweight='bold', color='#1a2a3a')
         ax_e.set_title(title, fontsize=11, fontweight='bold')
 
     fig_eco.suptitle(
         f'Bilan Avant/Après PAT | Q={Q_reseau:.0f}m³/h | ΔP={dP_total:.0f}bar | '
         f'{N_pat}×PAT D₂={D2_real:.0f}mm',
-        fontsize=11, fontweight='bold', color='#4FC3F7')
+        fontsize=11, fontweight='bold', color='#1565c0')
     plt.tight_layout()
     st.pyplot(fig_eco)
     plt.close()
@@ -861,20 +818,20 @@ with T5:
     cum_cf = np.cumsum([-C_invest] + [flux_an] * duree_proj)
 
     fig_f, (ax_f, ax_s) = plt.subplots(1, 2, figsize=(13, 4.5))
-    fig_f.patch.set_facecolor('#0a1628')
+    fig_f.patch.set_facecolor('#f8fafc')
     style_ax(ax_f)
     style_ax(ax_s)
 
     ax_f.fill_between(annees, cum_cf/1e6, 0, where=(cum_cf >= 0), color='#00e676', alpha=.15)
     ax_f.fill_between(annees, cum_cf/1e6, 0, where=(cum_cf < 0),  color='#ff5252', alpha=.15)
     ax_f.plot(annees, cum_cf/1e6, '-o', color='#4FC3F7', lw=2.5, ms=5, label='Cash-flow cumulé')
-    ax_f.axhline(0, color='white', lw=1, ls='--')
+    ax_f.axhline(0, color='#94a3b8', lw=1, ls='--')
     if payback < duree_proj:
         ax_f.axvline(payback, color='#ff9100', ls='--', lw=2, label=f'Payback={payback:.1f}ans')
     ax_f.set_xlabel("Années", fontsize=10, fontweight='bold')
     ax_f.set_ylabel("Cash-flow cumulé (M MAD)", fontsize=10, fontweight='bold')
     ax_f.set_title(f"Cash-flow cumulé | VAN={VAN/1e6:.2f}M MAD", fontsize=10, fontweight='bold')
-    ax_f.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+    ax_f.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
 
     tarifs_r = np.linspace(0.5, 2.5, 100)
     vans_r = [
@@ -885,19 +842,32 @@ with T5:
         for t in tarifs_r
     ]
     ax_s.plot(tarifs_r, np.array(vans_r)/1e6, '-', color='#4FC3F7', lw=2.5)
-    ax_s.axhline(0, color='white', lw=1, ls='--')
+    ax_s.axhline(0, color='#94a3b8', lw=1, ls='--')
     ax_s.axvline(tarif, color='#ff5252', lw=2, ls='--', label=f'Tarif actuel={tarif} MAD/kWh')
     ax_s.fill_between(tarifs_r, np.array(vans_r)/1e6, 0,
                       where=(np.array(vans_r) >= 0), color='#00e676', alpha=.1)
     ax_s.set_xlabel("Tarif électricité (MAD/kWh)", fontsize=10, fontweight='bold')
     ax_s.set_ylabel("VAN (M MAD)", fontsize=10, fontweight='bold')
     ax_s.set_title("Sensibilité VAN vs Tarif électricité", fontsize=10, fontweight='bold')
-    ax_s.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+    ax_s.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
 
     plt.tight_layout()
     st.pyplot(fig_f)
     plt.close()
 
+    st.markdown("---")
+    st.markdown('<div class="sh">Export Rapport PDF</div>', unsafe_allow_html=True)
+    if st.button("📄 Générer et télécharger le rapport PDF", type="primary"):
+        try:
+            pdf_bytes = generate_pdf_report()
+            st.download_button(
+                label="⬇️ Télécharger rapport_PAT.pdf",
+                data=pdf_bytes,
+                file_name=f"rapport_PAT_D{D2_real:.0f}mm_{N_pat}PATs.pdf",
+                mime="application/pdf",
+            )
+        except ImportError:
+            st.error("📦 Installe fpdf2 : pip install fpdf2")
 
 # ─── TAB 6 — Sellgren & Cavitation ───────────────────────────────────────────
 with T6:
@@ -930,7 +900,7 @@ with T6:
     st.markdown("<br>", unsafe_allow_html=True)
 
     fig_sell, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
-    fig_sell.patch.set_facecolor('#0a1628')
+    fig_sell.patch.set_facecolor('#f8fafc')
     style_ax(ax1)
     style_ax(ax2)
 
@@ -954,11 +924,11 @@ with T6:
     ax1.set_xlabel("Concentration volumique Cv (%)", fontsize=10, fontweight='bold')
     ax1.set_ylabel("HR — Head Ratio (%)", fontsize=10, fontweight='bold')
     ax1.set_title("Dératage tête (Sellgren 2003)", fontsize=10, fontweight='bold')
-    ax1.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+    ax1.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
     ax2.set_xlabel("Concentration volumique Cv (%)", fontsize=10, fontweight='bold')
     ax2.set_ylabel("ER — Efficiency Ratio (%)", fontsize=10, fontweight='bold')
     ax2.set_title("Dératage rendement (Sellgren 2003)", fontsize=10, fontweight='bold')
-    ax2.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+    ax2.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
     plt.tight_layout()
     st.pyplot(fig_sell)
     plt.close()
@@ -971,7 +941,7 @@ with T6:
     Q_max_op = 1.20 * Q_real
 
     fig_op, ax_op = plt.subplots(figsize=(10, 5))
-    fig_op.patch.set_facecolor('#0a1628')
+    fig_op.patch.set_facecolor('#f8fafc')
     style_ax(ax_op)
 
     mask = (Q_range >= Q_min_op) & (Q_range <= Q_max_op)
@@ -982,7 +952,7 @@ with T6:
     ax_op.axvline(Q_real,   color='#ff5252', ls='--', lw=2,   label=f'Q_BEP={Q_real:.0f}m³/h')
     ax_op.axvline(Q_min_op, color='#ffa000', ls=':',  lw=1.8, label=f'Q_min={Q_min_op:.0f}m³/h')
     ax_op.axvline(Q_max_op, color='#ffa000', ls=':',  lw=1.8, label=f'Q_max={Q_max_op:.0f}m³/h')
-    ax_op.axvline(Q_reseau, color='white',   ls='-',  lw=2,   label=f'Q_réseau={Q_reseau:.0f}m³/h')
+    ax_op.axvline(Q_reseau, color='#334155', ls='-',  lw=2,   label=f'Q_réseau={Q_reseau:.0f}m³/h')
     ax_op.scatter([Q_real], [H_pat_slurry], color='#ff5252', s=120, zorder=6,
                   edgecolors='white', lw=1.5)
 
@@ -991,13 +961,13 @@ with T6:
     ax2_op.set_ylabel("η global (%)", fontsize=10, fontweight='bold', color='#ff9100')
     ax2_op.tick_params(colors='#ff9100')
     ax2_op.spines['top'].set_visible(False)
-    ax2_op.spines['right'].set_edgecolor('#1e4d8c')
+    ax2_op.spines['right'].set_edgecolor('#cbd5e1')
     ax2_op.set_ylim(0, 100)
 
     lines1, labels1 = ax_op.get_legend_handles_labels()
     lines2, labels2 = ax2_op.get_legend_handles_labels()
     ax_op.legend(lines1 + lines2, labels1 + labels2,
-                 fontsize=8.5, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+                 fontsize=8.5, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
     ax_op.set_xlabel("Débit Q (m³/h)", fontsize=10, fontweight='bold')
     ax_op.set_ylabel("Hauteur H (m)", fontsize=10, fontweight='bold')
     ax_op.set_title(
@@ -1016,24 +986,7 @@ with T6:
             f'<div class="ad">🚨 Q réseau ({Q_reseau:.0f}m³/h) HORS fenêtre opératoire '
             f'[{Q_min_op:.0f} – {Q_max_op:.0f}] m³/h — Risque vibrations / cavitation</div>',
             unsafe_allow_html=True)
-# ── Affichage point BEP dans fenêtre opératoire ──
-    st.markdown('<div class="sh">Cohérence Q-H — Similitude</div>',
-            unsafe_allow_html=True)
 
-    c_qh1, c_qh2, c_qh3 = st.columns(3)
-    for col, (v, u, l, c) in zip([c_qh1, c_qh2, c_qh3], [
-     (f"{S_from_Q:.3f} / {S_from_H:.3f}", "—",
-      "S_Q vs S_H", "kpi kpi-o" if delta_S_pct > 5 else "kpi"),
-     (f"{off_bep_pct:+.1f}", "%",
-     "Écart BEP", "kpi kpi-r" if abs(off_bep_pct) > 20 else "kpi kpi-o"),
-     (f"{sigma_thoma:.4f}", "—",
-     "σ Thoma", "kpi"),
-]):
-     col.markdown(
-        f'<div class="{c}"><div class="kl">{l}</div>'
-        f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',
-        unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
 # ─── TAB 7 — TCO Matériaux ───────────────────────────────────────────────────
 with T7:
     st.markdown(
@@ -1066,27 +1019,27 @@ with T7:
     cpose = [tco_data[k]['cout_pose']   / 1e3 for k in tco_data]
 
     fig_tco, ax_tco = plt.subplots(figsize=(10, 4.5))
-    fig_tco.patch.set_facecolor('#0a1628')
+    fig_tco.patch.set_facecolor('#f8fafc')
     style_ax(ax_tco)
-    ax_tco.grid(axis='y', alpha=.15, linestyle='--', color='#1e4d8c')
-    ax_tco.tick_params(axis='x', colors='#c8d8f0')
+    ax_tco.grid(axis='y', alpha=.30, linestyle='--', color='#94a3b8')
+    ax_tco.tick_params(axis='x', colors='#334155')
 
     x  = np.arange(len(nms))
-    b1 = ax_tco.bar(x, cp,    0.5, label='Coût pièces',      color='#2E75B6', edgecolor='#060d18')
-    b2 = ax_tco.bar(x, cpose, 0.5, bottom=cp, label='Coût arrêt/pose', color='#ff9100', edgecolor='#060d18')
+    b1 = ax_tco.bar(x, cp,    0.5, label='Coût pièces',      color='#2E75B6', edgecolor='#f8fafc')
+    b2 = ax_tco.bar(x, cpose, 0.5, bottom=cp, label='Coût arrêt/pose', color='#ff9100', edgecolor='#f8fafc')
 
     for i, (bp, bps) in enumerate(zip(b1, b2)):
         total = bp.get_height() + bps.get_height()
         ax_tco.text(i, total + max(max(cp), 1) * 0.02, f'{total:.0f}k',
-            ha='center', fontsize=10, fontweight='bold', color='white')
+                    ha='center', fontsize=10, fontweight='bold', color='#1a2a3a')
 
     ax_tco.set_xticks(x)
-    ax_tco.set_xticklabels(nms, fontsize=9, color='#c8d8f0')
+    ax_tco.set_xticklabels(nms, fontsize=9, color='#334155')
     ax_tco.set_ylabel(f"TCO sur {duree_tco}ans (k MAD)", fontsize=10, fontweight='bold')
     ax_tco.set_title(
         f"Comparaison TCO — {duree_tco}ans | {N_pat}×PAT | Arrêt={tarif_downtime:,}MAD/h",
         fontsize=10, fontweight='bold')
-    ax_tco.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+    ax_tco.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
     plt.tight_layout()
     st.pyplot(fig_tco)
     plt.close()
@@ -1095,7 +1048,7 @@ with T7:
     st.markdown('<div class="sh">Sensibilité TCO vs Horizon</div>', unsafe_allow_html=True)
     horizons = np.arange(1, 16)
     fig_ts, ax_ts = plt.subplots(figsize=(10, 4))
-    fig_ts.patch.set_facecolor('#0a1628')
+    fig_ts.patch.set_facecolor('#f8fafc')
     style_ax(ax_ts)
 
     for nm, p in MATS.items():
@@ -1113,11 +1066,11 @@ with T7:
         ax_ts.plot(horizons, tco_h, '-o', color=p["c"], lw=2.2, ms=5,
                    label=nm.split('(')[0].strip()[:16])
 
-    ax_ts.axvline(duree_tco, color='white', ls='--', lw=1.5, label=f'Horizon={duree_tco}ans')
+    ax_ts.axvline(duree_tco, color='#334155', ls='--', lw=1.5, label=f'Horizon={duree_tco}ans')
     ax_ts.set_xlabel("Horizon (ans)", fontsize=10, fontweight='bold')
     ax_ts.set_ylabel("TCO (k MAD)", fontsize=10, fontweight='bold')
     ax_ts.set_title("Évolution TCO dans le temps — tous matériaux", fontsize=10, fontweight='bold')
-    ax_ts.legend(fontsize=9, facecolor='#0a1628', edgecolor='#1e4d8c', labelcolor='#c8d8f0')
+    ax_ts.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
     plt.tight_layout()
     st.pyplot(fig_ts)
     plt.close()
@@ -1127,7 +1080,7 @@ with T7:
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("---")
 st.markdown("""
-<div style='text-align:center;color:rgba(120,160,200,0.4);font-size:.72rem;
+<div style='text-align:center;color:rgba(50,90,140,0.45);font-size:.72rem;
             font-family:JetBrains Mono,monospace;'>
   PFE 2025–2026 · École Mohammadia d'Ingénieurs · Weir Minerals North Africa ·
   ANSYS CFX SST k-ω · Warman 10/8 M D₂=549mm
