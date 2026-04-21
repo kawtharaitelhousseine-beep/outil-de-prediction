@@ -434,17 +434,16 @@ T1, T2, T3, T4, T5, T6, T7 = st.tabs([
 
 
 def style_ax(ax):
-    ax.set_facecolor('#060d18')
-    ax.tick_params(colors='#7aa8d4', labelsize=9)
-    ax.xaxis.label.set_color('#7aa8d4')
-    ax.yaxis.label.set_color('#7aa8d4')
-    ax.title.set_color('#4FC3F7')
+    ax.set_facecolor('white')
+    ax.tick_params(colors='#334155', labelsize=9)
+    ax.xaxis.label.set_color('#334155')
+    ax.yaxis.label.set_color('#334155')
+    ax.title.set_color('#1565c0')
     for spine in ax.spines.values():
-        spine.set_edgecolor('#1e4d8c')
+        spine.set_edgecolor('#cbd5e1')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.grid(alpha=.15, linestyle='--', color='#1e4d8c')
-
+    ax.grid(alpha=.25, linestyle='--', color='#94a3b8')
 
 # ─── TAB 1 ───────────────────────────────────────────────────────────────────
 with T1:
