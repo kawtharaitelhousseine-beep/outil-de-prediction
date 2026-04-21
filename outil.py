@@ -1018,7 +1018,24 @@ with T6:
             f'<div class="ad">🚨 Q réseau ({Q_reseau:.0f}m³/h) HORS fenêtre opératoire '
             f'[{Q_min_op:.0f} – {Q_max_op:.0f}] m³/h — Risque vibrations / cavitation</div>',
             unsafe_allow_html=True)
+# ── Affichage point BEP dans fenêtre opératoire ──
+    st.markdown('<div class="sh">Cohérence Q-H — Similitude</div>',
+            unsafe_allow_html=True)
 
+    c_qh1, c_qh2, c_qh3 = st.columns(3)
+    for col, (v, u, l, c) in zip([c_qh1, c_qh2, c_qh3], [
+     (f"{S_from_Q:.3f} / {S_from_H:.3f}", "—",
+      "S_Q vs S_H", "kpi kpi-o" if delta_S_pct > 5 else "kpi"),
+     (f"{off_bep_pct:+.1f}", "%",
+     "Écart BEP", "kpi kpi-r" if abs(off_bep_pct) > 20 else "kpi kpi-o"),
+     (f"{sigma_thoma:.4f}", "—",
+     "σ Thoma", "kpi"),
+]):
+     col.markdown(
+        f'<div class="{c}"><div class="kl">{l}</div>'
+        f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',
+        unsafe_allow_html=True)
+   st.markdown("<br>", unsafe_allow_html=True)
 # ─── TAB 7 — TCO Matériaux ───────────────────────────────────────────────────
 with T7:
     st.markdown(
