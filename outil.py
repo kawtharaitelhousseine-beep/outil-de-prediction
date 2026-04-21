@@ -1080,7 +1080,7 @@ with T7:
     for i, (bp, bps) in enumerate(zip(b1, b2)):
         total = bp.get_height() + bps.get_height()
         ax_tco.text(i, total + max(max(cp), 1) * 0.02, f'{total:.0f}k',
-                    ha='center', fontsize=10, fontweight='bold', color='white')
+        ha='center', fontsize=10, fontweight='bold', color='white')
 
     ax_tco.set_xticks(x)
     ax_tco.set_xticklabels(nms, fontsize=9, color='#c8d8f0')
