@@ -240,13 +240,26 @@ H_pat_slurry  = H_par_pat * HR
 P_slurry      = rho * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
 P_elec_slurry = P_slurry * eta_g * ER
 
-# NPSH
-H_atm    = 101325 / (rho * g)
-Pv_Pa    = 3_170
-NPSH_d   = H_atm - Pv_Pa / (rho * g) - 2.0
-NPSH_r   = 0.3 * H_par_pat
-cavit_ok = NPSH_d >= NPSH_r
+# ══════════════════════════════════════════════════════
+# NPSH — Thoma corrigé (σ depuis Ns)
+# ══════════════════════════════════════════════════════
+H_atm  = 101325 / (rho * g)
+Pv_Pa  = 3_170                      # vapeur eau 25°C
 
+# Thoma σ calculé depuis Ns (Surek, pompe radiale)
+# σ = (Ns/4500)^(4/3), plancher 0.02
+sigma_thoma = max((Ns / 4500) ** (4/3), 0.02)
+
+NPSH_r   = sigma_thoma * H_par_pat  # CORRECT
+NPSH_d   = H_atm - Pv_Pa/(rho*g) - 2.0
+cavit_ok = NPSH_d >= NPSH_r
+# ══════════════════════════════════════════════════════
+# COHÉRENCE Q-H (similitude)   ← NOUVEAU ICI
+# ══════════════════════════════════════════════════════
+S_from_Q    = (Q_reseau / Q_bep_ref) ** (1/3)
+S_from_H    = S_real
+delta_S_pct = abs(S_from_Q - S_from_H) / S_from_Q * 100
+off_bep_pct = (Q_reseau - Q_real) / Q_real * 100
 # ── TCO ───────────────────────────────────────────────────────────────────────
 tco_data = {}
 for nm, p in MATS.items():
