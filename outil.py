@@ -613,16 +613,16 @@ with T3:
             unsafe_allow_html=True)
 
     if weir_eta_v_ok:
-    st.markdown(
-        f'<div class="aok">✅ Fuite volumétrique OK — '
-        f'Q_fuite={Q_fuite_reel:.2f} m³/h ≤ seuil 5% réseau ({Q_fuite_max_m3h:.2f} m³/h)</div>',
-        unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="aok">✅ Fuite volumétrique OK — '
+            f'Q_fuite={Q_fuite_reel:.2f} m³/h ≤ seuil 5% réseau ({Q_fuite_max_m3h:.2f} m³/h)</div>',
+            unsafe_allow_html=True)
     else:
-    st.markdown(
-        f'<div class="ad">🚨 Fuite volumétrique excessive — '
-        f'Q_fuite={Q_fuite_reel:.2f} m³/h &gt; seuil 5% réseau ({Q_fuite_max_m3h:.2f} m³/h) — '
-        f'Vérifier garnitures mécaniques</div>',
-        unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="ad">🚨 Fuite volumétrique excessive — '
+            f'Q_fuite={Q_fuite_reel:.2f} m³/h &gt; seuil 5% réseau ({Q_fuite_max_m3h:.2f} m³/h) — '
+            f'Vérifier garnitures mécaniques</div>',
+            unsafe_allow_html=True)
     if alerte == "DANGER":
         st.markdown(
             f'<div class="ad">🚨 <b>USURE CRITIQUE — {mat_sel.split("(")[0]}</b> : '
