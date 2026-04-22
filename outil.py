@@ -910,8 +910,7 @@ with T6:
     ax_op.set_xlabel("Débit Q (m³/h)", fontsize=10, fontweight='bold')
     ax_op.set_ylabel("Hauteur H (m)", fontsize=10, fontweight='bold')
     ax_op.set_title(
-        f"Fenêtre Opératoire PAT — Sellgren HR={HR*100:.1f}% | Cv={Cv*100:.0f}% | Ns={Ns:.1f}",
-        fontsize=10, fontweight='bold')
+        
     plt.tight_layout()
     st.pyplot(fig_op)
     plt.close()
