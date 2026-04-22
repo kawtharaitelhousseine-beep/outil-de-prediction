@@ -115,12 +115,7 @@ with st.sidebar:
     tarif    = st.number_input("Tarif élec. (MAD/kWh)", value=1.10, step=0.05)
     H_AN     = st.number_input("Heures fonct./an",      value=8000, step=100)
 
-    st.markdown("---")
-    st.markdown("## 🌊 Correction Sellgren")
-    Cv     = st.slider("Concentration volumique Cv (%)", 0, 35, 18, 1) / 100
-    d50_um = st.number_input("d₅₀ particules (µm)", value=150.0, step=10.0)
-    Ss     = st.number_input("Densité solide Ss",    value=2.65,  step=0.05)
-
+    
     st.markdown("---")
     st.markdown("## 🛒 TCO Matériaux")
     COUT_MAT = {
@@ -195,17 +190,10 @@ WEIR_INSP_H = 1800
 weir_ok = duree_h >= WEIR_INSP_H
 alerte  = "DANGER" if ep_res <= EP_MIN else ("WARNING" if ep_res <= EP_MIN * 1.8 else "OK")
 
-# ── Sellgren (Wilson & Sellgren, 2003) ────────────────────────────────────────
-d50_m = d50_um * 1e-6
-d_ref = 0.5e-3
-Sm    = (Ss - 1) * Cv
-f_d   = min((d50_m / d_ref) ** 0.15, 1.0)
-HR    = max(1.0 - 0.58 * Sm * f_d, 0.50)
-ER    = max(1.0 - 0.28 * Sm * f_d, 0.50)
 
-H_pat_slurry  = H_par_pat * HR
+H_pat_slurry  = H_par_pat 
 P_slurry      = rho * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
-P_elec_slurry = P_slurry * eta_g * ER
+P_elec_slurry = P_slurry * eta_g 
 
 # ══════════════════════════════════════════════════
 # NPSH — Thoma corrigé (σ depuis Ns)
@@ -304,11 +292,6 @@ def generate_pdf_report():
     pdf.ln(3)
 
     section("3. CORRECTION SELLGREN (Wilson & Sellgren, 2003)")
-    row("Concentration Cv",  f"{Cv*100:.1f}", "%")
-    row("d₅₀",               f"{d50_um:.0f}", "µm")
-    row("Densité solide Ss",  f"{Ss:.2f}")
-    row("HR — Head Ratio",   f"{HR*100:.1f}", "%")
-    row("ER — Effic. Ratio", f"{ER*100:.1f}", "%")
     row("NPSH disponible",   f"{NPSH_d:.2f}", "m")
     row("NPSH requis",       f"{NPSH_r:.2f}", "m")
     row("Cavitation",        "OK" if cavit_ok else "RISQUE")
@@ -386,7 +369,7 @@ T1, T2, T3, T4, T5, T6, T7 = st.tabs([
     "🔧 Maintenance & Usure",
     "🌍 Bilan Éco & CO₂",
     "💰 Analyse Financière",
-    "🌊 Sellgren & Cavitation",
+    "🌊  Cavitation",
     "🏷️ TCO Matériaux",
 ])
 
@@ -871,7 +854,7 @@ with T5:
         except ImportError:
             st.error("📦 Installe fpdf2 : pip install fpdf2")
 
-# ─── TAB 6 — Sellgren & Cavitation ───────────────────────────────────────────
+# ─── TAB 6 —  Cavitation ───────────────────────────────────────────
 with T6:
     st.markdown(
         '<div class="sh">Correction Sellgren (Wilson & Sellgren, 2003) — '
@@ -888,53 +871,7 @@ with T6:
             f'<div class="aok">✅ Cavitation OK — NPSH_d={NPSH_d:.2f}m ≥ NPSH_r={NPSH_r:.2f}m</div>',
             unsafe_allow_html=True)
 
-    s1, s2, s3, s4 = st.columns(4)
-    for col, (v, u, l, c) in zip([s1, s2, s3, s4], [
-        (f"{HR*100:.1f}",        "%",  "HR — Dératage tête", "kpi kpi-o"),
-        (f"{ER*100:.1f}",        "%",  "ER — Dératage η",    "kpi kpi-o"),
-        (f"{H_pat_slurry:.1f}",  "m",  "H effective pulpe",  "kpi"),
-        (f"{P_elec_slurry:.1f}", "kW", "P corrigée pulpe",   "kpi kpi-g"),
-    ]):
-        col.markdown(
-            f'<div class="{c}"><div class="kl">{l}</div>'
-            f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',
-            unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    fig_sell, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
-    fig_sell.patch.set_facecolor('#f8fafc')
-    style_ax(ax1)
-    style_ax(ax2)
-
-    Cv_r = np.linspace(0, 0.35, 200)
-    for d50_test, color, lbl in [
-        (50,  '#ff5252', '50µm'),
-        (150, '#4FC3F7', '150µm (nominal)'),
-        (400, '#00e676', '400µm'),
-    ]:
-        fd   = min((d50_test * 1e-6 / d_ref)**0.15, 1.0)
-        HR_c = np.maximum(1 - 0.58 * (Ss - 1) * Cv_r * fd, 0.5)
-        ER_c = np.maximum(1 - 0.28 * (Ss - 1) * Cv_r * fd, 0.5)
-        ax1.plot(Cv_r * 100, HR_c * 100, '-', color=color, lw=2.2, label=f'd₅₀={lbl}')
-        ax2.plot(Cv_r * 100, ER_c * 100, '-', color=color, lw=2.2, label=f'd₅₀={lbl}')
-
-    ax1.axvline(Cv * 100, color='#ff9100', ls='--', lw=2, label=f'Cv={Cv*100:.0f}%')
-    ax1.axhline(HR * 100, color='#ff9100', ls=':', lw=1.5)
-    ax2.axvline(Cv * 100, color='#ff9100', ls='--', lw=2, label=f'Cv={Cv*100:.0f}%')
-    ax2.axhline(ER * 100, color='#ff9100', ls=':', lw=1.5)
-
-    ax1.set_xlabel("Concentration volumique Cv (%)", fontsize=10, fontweight='bold')
-    ax1.set_ylabel("HR — Head Ratio (%)", fontsize=10, fontweight='bold')
-    ax1.set_title("Dératage tête (Sellgren 2003)", fontsize=10, fontweight='bold')
-    ax1.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
-    ax2.set_xlabel("Concentration volumique Cv (%)", fontsize=10, fontweight='bold')
-    ax2.set_ylabel("ER — Efficiency Ratio (%)", fontsize=10, fontweight='bold')
-    ax2.set_title("Dératage rendement (Sellgren 2003)", fontsize=10, fontweight='bold')
-    ax2.legend(fontsize=9, facecolor='#f8fafc', edgecolor='#cbd5e1', labelcolor='#1a2a3a')
-    plt.tight_layout()
-    st.pyplot(fig_sell)
-    plt.close()
-
+   
     st.markdown('<div class="sh">Fenêtre Opératoire — Plage Admissible</div>', unsafe_allow_html=True)
     Q_range  = np.linspace(0.4 * Q_real, 1.5 * Q_real, 300)
     H_hq     = H_pat_slurry * (Q_range / Q_real)**2
