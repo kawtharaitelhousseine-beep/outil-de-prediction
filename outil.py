@@ -115,7 +115,6 @@ with st.sidebar:
     tarif    = st.number_input("Tarif élec. (MAD/kWh)", value=1.10, step=0.05)
     H_AN     = st.number_input("Heures fonct./an",      value=8000, step=100)
 
-    
     st.markdown("---")
     st.markdown("## 🛒 TCO Matériaux")
     COUT_MAT = {
@@ -168,7 +167,8 @@ P_disque = rho * g * (Q_reseau / 3600) * H_total / 1000
 E_perdue = P_disque * H_AN / 1000
 
 # Fuite volumétrique
-Q_fuite_max_m3h = Q_reseau * 0.05        # 5% du débit réseau réel
+Q_fuite_max_Ls  = 0.70
+Q_fuite_max_m3h = Q_fuite_max_Ls * 3.6
 Q_fuite_reel    = Q_real * (1 - eta_v)
 weir_eta_v_ok   = Q_fuite_reel <= Q_fuite_max_m3h
 
@@ -190,20 +190,20 @@ WEIR_INSP_H = 1800
 weir_ok = duree_h >= WEIR_INSP_H
 alerte  = "DANGER" if ep_res <= EP_MIN else ("WARNING" if ep_res <= EP_MIN * 1.8 else "OK")
 
+# ── Sellgren (Wilson & Sellgren, 2003) ────────────────────────────────────────
+# CFD biphasique (ρ=1590 kg/m³, d=250µm) → performances déjà en pulpe réelle
+# Pas de correction Sellgren — HR=ER=1 pour éviter double comptage
+HR           = 1.0
+ER           = 1.0
+H_pat_slurry = H_par_pat
+P_elec_slurry = P_total
 
-H_pat_slurry  = H_par_pat 
-P_slurry      = rho * g * (Q_real / 3600) * H_pat_slurry * N_pat / 1000
-P_elec_slurry = P_slurry * eta_g 
-
-# ══════════════════════════════════════════════════
-# NPSH — Thoma corrigé (σ depuis Ns)
-# ══════════════════════════════════════════════════
-H_atm       = 101325 / (rho * g)
-Pv_Pa       = 3_170
-sigma_thoma = max((Ns / 4500) ** (4/3), 0.02)
-NPSH_r      = sigma_thoma * H_par_pat
-NPSH_d      = H_atm - Pv_Pa / (rho * g) - 2.0
-cavit_ok    = NPSH_d >= NPSH_r
+# NPSH
+H_atm    = 101325 / (rho * g)
+Pv_Pa    = 3_170
+NPSH_d   = H_atm - Pv_Pa / (rho * g) - 2.0
+NPSH_r   = 0.3 * H_par_pat
+cavit_ok = NPSH_d >= NPSH_r
 
 # ── TCO ───────────────────────────────────────────────────────────────────────
 tco_data = {}
@@ -287,14 +287,16 @@ def generate_pdf_report():
     row("Vitesse spécifique Ns",  f"{Ns:.1f}")
     row("Q par PAT",              f"{Q_real:.1f}",      "m³/h")
     row("H par PAT (eau)",        f"{H_par_pat:.2f}",   "m")
-    row("H par PAT (pulpe)",      f"{H_pat_slurry:.2f}","m  [Sellgren]")
+    row("H par PAT",              f"{H_par_pat:.2f}",   "m  [CFD pulpe]")
     row("P totale récupérée",     f"{P_total:.1f}",     "kW")
     pdf.ln(3)
 
-    section("3. CORRECTION SELLGREN (Wilson & Sellgren, 2003)")
+    section("3. CAVITATION & NPSH")
+    row("σ Thoma",           f"{sigma_thoma:.4f}")
     row("NPSH disponible",   f"{NPSH_d:.2f}", "m")
     row("NPSH requis",       f"{NPSH_r:.2f}", "m")
     row("Cavitation",        "OK" if cavit_ok else "RISQUE")
+    row("Note CFD",          "Biphasique d=250um - HR=ER=1.0")
     pdf.ln(3)
 
     section("4. USURE & MAINTENANCE")
@@ -369,7 +371,7 @@ T1, T2, T3, T4, T5, T6, T7 = st.tabs([
     "🔧 Maintenance & Usure",
     "🌍 Bilan Éco & CO₂",
     "💰 Analyse Financière",
-    "🌊  Cavitation",
+    "🌊 Sellgren & Cavitation",
     "🏷️ TCO Matériaux",
 ])
 
@@ -598,14 +600,14 @@ with T3:
     if weir_eta_v_ok:
         st.markdown(
             f'<div class="aok">✅ Fuite volumétrique OK — '
-            f'Q_fuite={Q_fuite_reel:.2f} m³/h ≤ seuil 5% réseau ({Q_fuite_max_m3h:.2f} m³/h)</div>',
+            f'Q_fuite={Q_fuite_reel:.2f} m³/h ≤ limite Weir {Q_fuite_max_m3h:.2f} m³/h</div>',
             unsafe_allow_html=True)
     else:
         st.markdown(
             f'<div class="ad">🚨 Fuite volumétrique excessive — '
-            f'Q_fuite={Q_fuite_reel:.2f} m³/h &gt; seuil 5% réseau ({Q_fuite_max_m3h:.2f} m³/h) — '
-            f'Vérifier garnitures mécaniques</div>',
+            f'Q_fuite={Q_fuite_reel:.2f} m³/h &gt; {Q_fuite_max_m3h:.2f} m³/h</div>',
             unsafe_allow_html=True)
+
     if alerte == "DANGER":
         st.markdown(
             f'<div class="ad">🚨 <b>USURE CRITIQUE — {mat_sel.split("(")[0]}</b> : '
@@ -854,12 +856,31 @@ with T5:
         except ImportError:
             st.error("📦 Installe fpdf2 : pip install fpdf2")
 
-# ─── TAB 6 —  Cavitation ───────────────────────────────────────────
+# ─── TAB 6 — Cavitation & Fenêtre Opératoire ────────────────────────────────
 with T6:
+    st.markdown('<div class="sh">Vérification Cavitation & Fenêtre Opératoire</div>',
+                unsafe_allow_html=True)
+
     st.markdown(
-        '<div class="sh">Correction Sellgren (Wilson & Sellgren, 2003) — '
-        'Dératage Pulpe & Fenêtre Opératoire</div>',
+        '<div class="aw">ℹ️ Simulation CFD conduite en écoulement biphasique '
+        '(rho=1590 kg/m3, d=250 um) — Performances deja en pulpe reelle. '
+        'HR = ER = 1.0 — Pas de double correction appliquee.</div>',
         unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── KPIs NPSH ────────────────────────────────────────────────────────────
+    n1, n2, n3, n4 = st.columns(4)
+    for col, (v, u, l, c) in zip([n1, n2, n3, n4], [
+        (f"{NPSH_d:.2f}", "m",  "NPSH disponible",  "kpi kpi-g" if cavit_ok else "kpi kpi-r"),
+        (f"{NPSH_r:.2f}", "m",  "NPSH requis",       "kpi kpi-g" if cavit_ok else "kpi kpi-r"),
+        (f"{sigma_thoma:.4f}", "—", "σ Thoma (Surek)", "kpi"),
+        (f"{Ns:.1f}",     "—",  "Ns vitesse spéc.",  "kpi"),
+    ]):
+        col.markdown(
+            f'<div class="{c}"><div class="kl">{l}</div>'
+            f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',
+            unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     if not cavit_ok:
         st.markdown(
@@ -868,13 +889,17 @@ with T6:
             unsafe_allow_html=True)
     else:
         st.markdown(
-            f'<div class="aok">✅ Cavitation OK — NPSH_d={NPSH_d:.2f}m ≥ NPSH_r={NPSH_r:.2f}m</div>',
+            f'<div class="aok">✅ Cavitation OK — NPSH_d={NPSH_d:.2f}m ≥ NPSH_r={NPSH_r:.2f}m '
+            f'| σ={sigma_thoma:.4f} | Ns={Ns:.1f}</div>',
             unsafe_allow_html=True)
 
-   
-    st.markdown('<div class="sh">Fenêtre Opératoire — Plage Admissible</div>', unsafe_allow_html=True)
+    # ── Fenêtre Opératoire ───────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="sh">Fenêtre Opératoire — Plage Admissible</div>',
+                unsafe_allow_html=True)
+
     Q_range  = np.linspace(0.4 * Q_real, 1.5 * Q_real, 300)
-    H_hq     = H_pat_slurry * (Q_range / Q_real)**2
+    H_hq     = H_par_pat * (Q_range / Q_real)**2
     eta_hq   = eta_g * np.exp(-2.5 * ((Q_range - Q_real) / Q_real)**2)
     Q_min_op = 0.70 * Q_real
     Q_max_op = 1.20 * Q_real
@@ -884,15 +909,14 @@ with T6:
     style_ax(ax_op)
 
     mask = (Q_range >= Q_min_op) & (Q_range <= Q_max_op)
-    ax_op.plot(Q_range, H_hq, '-', color='#4FC3F7', lw=2.5,
-               label='Courbe H-Q PAT (pulpe corrigée Sellgren)')
+    ax_op.plot(Q_range, H_hq, '-', color='#4FC3F7', lw=2.5, label='Courbe H-Q PAT (données CFD pulpe)')
     ax_op.fill_between(Q_range, H_hq, where=mask, color='#00e676', alpha=.2,
                        label='Zone admissible (70%–120% BEP)')
     ax_op.axvline(Q_real,   color='#ff5252', ls='--', lw=2,   label=f'Q_BEP={Q_real:.0f}m³/h')
     ax_op.axvline(Q_min_op, color='#ffa000', ls=':',  lw=1.8, label=f'Q_min={Q_min_op:.0f}m³/h')
     ax_op.axvline(Q_max_op, color='#ffa000', ls=':',  lw=1.8, label=f'Q_max={Q_max_op:.0f}m³/h')
     ax_op.axvline(Q_reseau, color='#334155', ls='-',  lw=2,   label=f'Q_réseau={Q_reseau:.0f}m³/h')
-    ax_op.scatter([Q_real], [H_pat_slurry], color='#ff5252', s=120, zorder=6,
+    ax_op.scatter([Q_real], [H_par_pat], color='#ff5252', s=120, zorder=6,
                   edgecolors='white', lw=1.5)
 
     ax2_op = ax_op.twinx()
@@ -910,7 +934,8 @@ with T6:
     ax_op.set_xlabel("Débit Q (m³/h)", fontsize=10, fontweight='bold')
     ax_op.set_ylabel("Hauteur H (m)", fontsize=10, fontweight='bold')
     ax_op.set_title(
-        
+        f"Fenêtre Opératoire PAT — Ns={Ns:.1f} | Q_BEP={Q_real:.0f}m³/h",
+        fontsize=10, fontweight='bold')
     plt.tight_layout()
     st.pyplot(fig_op)
     plt.close()
@@ -922,8 +947,41 @@ with T6:
     else:
         st.markdown(
             f'<div class="ad">🚨 Q réseau ({Q_reseau:.0f}m³/h) HORS fenêtre opératoire '
-            f'[{Q_min_op:.0f} – {Q_max_op:.0f}] m³/h — Risque vibrations / cavitation</div>',
+            f'[{Q_min_op:.0f} – {Q_max_op:.0f}] m³/h — Risque vibrations</div>',
             unsafe_allow_html=True)
+
+    # ── Cohérence Q-H ────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="sh">Cohérence Q-H — Similitude</div>', unsafe_allow_html=True)
+    S_from_Q    = (Q_reseau / Q_bep) ** (1/3)
+    S_from_H    = S_real
+    delta_S_pct = abs(S_from_Q - S_from_H) / S_from_Q * 100
+    off_bep_pct = (Q_reseau - Q_real) / Q_real * 100
+
+    c_qh1, c_qh2, c_qh3 = st.columns(3)
+    for col, (v, u, l, c) in zip([c_qh1, c_qh2, c_qh3], [
+        (f"{S_from_Q:.3f} / {S_from_H:.3f}", "—",
+         "S_Q vs S_H", "kpi kpi-o" if delta_S_pct > 5 else "kpi"),
+        (f"{off_bep_pct:+.1f}", "%",
+         "Écart BEP", "kpi kpi-r" if abs(off_bep_pct) > 20 else "kpi kpi-o"),
+        (f"{sigma_thoma:.4f}", "—", "σ Thoma", "kpi"),
+    ]):
+        col.markdown(
+            f'<div class="{c}"><div class="kl">{l}</div>'
+            f'<div class="kv">{v}</div><div class="ku">{u}</div></div>',
+            unsafe_allow_html=True)
+
+    if delta_S_pct > 5:
+        st.markdown(
+            f'<div class="aw">⚠️ <b>Incohérence Q-H</b> — S_Q={S_from_Q:.3f} ≠ S_H={S_from_H:.3f} '
+            f'(écart {delta_S_pct:.1f}%) — Q réseau à <b>{off_bep_pct:+.1f}% du BEP</b> — '
+            f'Variateur de vitesse recommandé.</div>', unsafe_allow_html=True)
+    if abs(off_bep_pct) > 20:
+        st.markdown(
+            f'<div class="ad">🚨 <b>Point hors fenêtre</b> — Q_réseau={Q_reseau:.0f} vs '
+            f'Q_BEP={Q_real:.0f} m³/h ({off_bep_pct:+.1f}%) — Risque vibrations.</div>',
+            unsafe_allow_html=True)
+
 
 # ─── TAB 7 — TCO Matériaux ───────────────────────────────────────────────────
 with T7:
