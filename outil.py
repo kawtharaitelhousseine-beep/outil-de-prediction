@@ -199,11 +199,13 @@ H_pat_slurry = H_par_pat
 P_elec_slurry = P_total
 
 # NPSH
-H_atm    = 101325 / (rho * g)
-Pv_Pa    = 3_170
-NPSH_d   = H_atm - Pv_Pa / (rho * g) - 2.0
-NPSH_r   = 0.3 * H_par_pat
-cavit_ok = NPSH_d >= NPSH_r
+# NPSH — Thoma corrigé
+H_atm       = 101325 / (rho * g)
+Pv_Pa       = 3_170
+sigma_thoma = max((Ns / 4500) ** (4/3), 0.02)  # ← doit rester même si HR=1.0
+NPSH_r      = sigma_thoma * H_par_pat
+NPSH_d      = H_atm - Pv_Pa / (rho * g) - 2.0
+cavit_ok    = NPSH_d >= NPSH_r
 
 # ── TCO ───────────────────────────────────────────────────────────────────────
 tco_data = {}
@@ -371,7 +373,7 @@ T1, T2, T3, T4, T5, T6, T7 = st.tabs([
     "🔧 Maintenance & Usure",
     "🌍 Bilan Éco & CO₂",
     "💰 Analyse Financière",
-    "🌊 Sellgren & Cavitation",
+    "🌊 Cavitation",
     "🏷️ TCO Matériaux",
 ])
 
